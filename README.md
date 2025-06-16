@@ -1,1 +1,1 @@
-Basic wordle bot based on entropy optimization.
+WeekendWordleBot is a work-in-progress bot to optimally solve the NYT Wordle game I decided to make for fun one weekened. It only has knowledge of the 14855 valid guess words, not the much small solution set. It's based in Shannon entropy and there are many explinations out there for similar bots for example the excellent videos by 3b1b. 
