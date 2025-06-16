@@ -1,0 +1,1 @@
+Basic wordle bot based on entropy optimization.
