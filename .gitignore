@@ -10,5 +10,5 @@ wheels/
 .venv
 
 # Large files that can be recomputed
-pattern_matrix.npy
-wordle_words.txt
+*.npy
+*.txt

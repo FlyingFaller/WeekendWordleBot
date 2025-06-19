@@ -6,16 +6,14 @@ import random
 import multiprocessing
 import time
 from numba import njit, prange
+import wordfreq
 
 VALID_WORDS_URL = "https://gist.github.com/dracos/dd0668f281e685bad51479e5acaadb93/raw/6bfa15d263d6d5b63840a8e5b64e04b382fdb079/valid-wordle-words.txt"
-VALID_WORDS_FILE = "wordle_words.txt"
+VALID_WORDS_FILE = "valid_words.txt"
 PATTERN_MATRIX_FILE = "pattern_matrix.npy"
 GREEN = 2
 YELLOW = 1
 GRAY = 0
-
-NPRUNE = 250
-NDEPTH = 2
 
 def get_pattern(guess: str, answer: str) -> list[int]:
     """Calculates the wordle pattern for guess word and answer word."""
@@ -55,7 +53,7 @@ def int_to_pattern(num: int) -> list[int]:
 def compute_pattern_row(args):
     """Worker function to compute a single row of the pattern matrix"""
     guess_word, answers = args
-    row = np.zeros(len(answers), dtype=np.int16)
+    row = np.zeros(len(answers), dtype=np.uint8)
     for j, answer_word in enumerate(answers):
         row[j] = pattern_to_int(get_pattern(guess_word, answer_word))
     return row
@@ -69,38 +67,43 @@ def precompute_pattern_matrix(guesses:np.ndarray[str], answers: np.ndarray[str])
     pattern_matrix = np.vstack(results)
     return pattern_matrix
 
-def get_pattern_matrix(guesses:np.ndarray[str], answers: np.ndarray[str], recompute=False) -> np.ndarray[str]:
+def get_pattern_matrix(guesses:np.ndarray[str], answers: np.ndarray[str], savefile=PATTERN_MATRIX_FILE, recompute=False, save=True) -> np.ndarray[str]:
     """Retrieves the pattern matrix from file if it exists otherwise it generates it and saves it to file."""
-    if os.path.exists(PATTERN_MATRIX_FILE) and not recompute:
-        print("Fetching pattern matrix from file")
-        pattern_matrix = np.load(PATTERN_MATRIX_FILE)
-    else:
-        print("No pattern matrix file found, recomputing")
-        pattern_matrix = precompute_pattern_matrix(guesses, answers)
-        np.save(PATTERN_MATRIX_FILE, pattern_matrix)
+    if not recompute:
+        if os.path.exists(savefile):
+            print("Fetching pattern matrix from file")
+            pattern_matrix = np.load(savefile)
+            return pattern_matrix
+    print("No pattern matrix file found or recompute requested")
+    pattern_matrix = precompute_pattern_matrix(guesses, answers)
+    if save:
+        print("Saving pattern matrix to file")
+        np.save(savefile, pattern_matrix)
     return pattern_matrix
 
-def get_valid_words(refetch=False) -> np.ndarray[str]:
-    """Retrieves the word list from file it it exists otherwise it fetches and saves it to file."""
-    if os.path.exists(VALID_WORDS_FILE) and not refetch:
-        print("Fetching all valid words from file")
-        with open(VALID_WORDS_FILE, 'r') as f:
-            # The last line might be empty, so we filter it out.
-            return np.array([line.strip() for line in f if line.strip()], dtype=str)
-    else:
-        print("No word list exists, fetching from the web")
-        try:
-            response = requests.get(VALID_WORDS_URL)
-            # Raises an HTTPError if the HTTP request returned an unsuccessful status code.
-            response.raise_for_status()
-            words_text = response.text
-            with open(VALID_WORDS_FILE, 'w') as f:
+def get_words(savefile=VALID_WORDS_FILE, url=VALID_WORDS_URL, refetch=False, save=True) -> np.ndarray[str]:
+    """Retrieves the word list from file it it exists otherwise it fetches from url."""
+    if not refetch:
+        if os.path.exists(savefile):
+            print("Fetching all valid words from file")
+            with open(savefile, 'r') as f:
+                # The last line might be empty, so we filter it out.
+                return np.array([line.strip() for line in f if line.strip()], dtype=str)
+    print("No word list exists or refetching requested, fetching from the web")
+    try:
+        response = requests.get(url)
+        # Raises an HTTPError if the HTTP request returned an unsuccessful status code.
+        response.raise_for_status()
+        words_text = response.text
+        if save:
+            print("Saving word list to file")
+            with open(savefile, 'w') as f:
                 f.write(words_text)
-            # The last line might be empty, so we filter it out.
-            return [word for word in words_text.splitlines() if word]
-        except requests.exceptions.RequestException as e:
-            print(f"Error downloading the word list: {e}")
-            return np.array([], dtype=str)
+        # The last line might be empty, so we filter it out.
+        return [word for word in words_text.splitlines() if word]
+    except requests.exceptions.RequestException as e:
+        print(f"Error downloading the word list: {e}")
+        return np.array([], dtype=str)
 
 def compute_entropies(pattern_matrix: np.ndarray) -> np.ndarray:
     """Calculates the expected Shannon entropy for each guess considering all remaining answers."""
@@ -145,19 +148,29 @@ def recursive_search(
     full_pattern_matrix: np.ndarray,
     guess_indicies: np.ndarray,
     answer_indicies: np.ndarray,
-    current_depth: int
+    current_depth: int,
+    nprune: int
     ) -> tuple[float, int]:
     nanswers = len(answer_indicies)
 
+    if nanswers == 1:
+        return 0.0, guess_indicies[np.argmax(full_pattern_matrix[guess_indicies, answer_indicies[0]])] # Get the guess indicie corresponding to the remaining answer
+    elif nanswers == 2:
+        return 1.0, guess_indicies[np.argmax(full_pattern_matrix[guess_indicies, answer_indicies[0]])] # Get one of the possible answers and return its correspoinding guess indicie
+
     H_array = fast_entropies(full_pattern_matrix, guess_indicies, answer_indicies)
 
-    top_H_indicies = np.flip(np.argsort(H_array))[0:NPRUNE] # Sort entropies best to worst and get the top indicies into pruned guess list
-    top_H_values = H_array[top_H_indicies] # Get values of top entropies
+    H_array = fast_entropies(full_pattern_matrix, guess_indicies, answer_indicies)
+    H_nonzero_indicies = np.where(H_array > 0.1)[0] # Find only the location of nonzero values
+    H_nonzero_values = H_array[H_nonzero_indicies] # Get the nonzero values
+    sorted_H_indicies = np.argsort(H_nonzero_values)[::-1] # indicies local to our sub list
+    top_H_indicies = H_nonzero_indicies[sorted_H_indicies[:min(nprune, len(H_nonzero_indicies))]]
+    top_H_values = H_array[top_H_indicies]
 
     if current_depth == 1: # If last search
         return (top_H_values[0], guess_indicies[top_H_indicies[0]]) # Return the max entropy and associated global guess index
 
-    for i in range(0, NPRUNE):
+    for i in range(0, len(top_H_indicies)):
         guess_idx_local = top_H_indicies[i] # index of guess into current pruned guess list
         guess_idx_global = guess_indicies[guess_idx_local] # retrieve the real index
         pattern_matrix_row = full_pattern_matrix[guess_idx_global, answer_indicies] # row pruned pattern matrix for current word
@@ -173,12 +186,8 @@ def recursive_search(
         for (px, pattern) in zip(probabilities, patterns):
             next_answer_indicies = answer_indicies[pattern_matrix_row == pattern] # Prune the answer indicies we are considering
 
-            if len(next_answer_indicies) <= 1: # If our solution space shinks to 1 we have solved the wordle and there is no more information to get
-                next_H = 0.0
-            else:
-                next_guess_indicies = np.delete(guess_indicies, guess_idx_local) # Get rid of current guess for next round
-
-                next_H, next_guess_idx = recursive_search(full_pattern_matrix, next_guess_indicies, next_answer_indicies, current_depth-1)
+            next_guess_indicies = np.delete(guess_indicies, guess_idx_local) # Get rid of current guess for next round
+            next_H, next_guess_idx = recursive_search(full_pattern_matrix, next_guess_indicies, next_answer_indicies, current_depth-1, nprune)
             weighted_H += px*next_H
 
         top_H_values[i] += weighted_H
@@ -190,24 +199,42 @@ def logged_recursive_search(
     full_pattern_matrix: np.ndarray,
     guess_indicies: np.ndarray,
     answer_indicies: np.ndarray,
-    depth: int
-    ) -> tuple[float, int]:
+    depth: int,
+    nprune: int
+    ) -> list[tuple[float, int]]:
     """
     Python-level wrapper to show a smooth progress bar for the top-level search.
     """
     nanswers = len(answer_indicies)
+    all_green_pattern = pattern_to_int(5*[GREEN])
+
+    pruned_pattern_matrix = full_pattern_matrix[guess_indicies]
+    if nanswers == 1:
+        pattern_row = pruned_pattern_matrix[:, answer_indicies[0]].flatten()
+        return [(0.0, guess_indicies[np.argmax(pattern_row == all_green_pattern)])] # Get the guess indicie corresponding to the remaining answer
+    elif nanswers == 2:
+        pattern_row_1 = pruned_pattern_matrix[: answer_indicies[0]].flatten()
+        pattern_row_2 = pruned_pattern_matrix[: answer_indicies[1]].flatten()
+        word_1 = (1.0, guess_indicies[np.argmax(pattern_row_1 == all_green_pattern)])
+        word_2 = (1.0, guess_indicies[np.argmax(pattern_row_2 == all_green_pattern)])
+        return [word_1, word_2]
+
     H_array = fast_entropies(full_pattern_matrix, guess_indicies, answer_indicies)
-    top_H_indicies = np.flip(np.argsort(H_array))[0:NPRUNE]
+    H_nonzero_indicies = np.where(H_array > 0.1)[0] # Find only the location of nonzero values
+    H_nonzero_values = H_array[H_nonzero_indicies] # Get the nonzero values
+    sorted_H_indicies = np.argsort(H_nonzero_values)[::-1] # indicies local to our sub list
+    top_H_indicies = H_nonzero_indicies[sorted_H_indicies[:min(nprune, len(H_nonzero_indicies))]]
     top_H_values = H_array[top_H_indicies]
 
     if depth == 1:
-        return (top_H_values[0], guess_indicies[top_H_indicies[0]])
-
+        best_global_indices = guess_indicies[top_H_indicies]
+        return list(zip(top_H_values, best_global_indices))
+    
     # First, calculate the total number of patterns we will explore to set up the progress bar.
     # We also store the results to avoid redundant calculations.
     total_patterns_to_explore = 0
     precalculated_data = []
-    for i in range(NPRUNE):
+    for i in range(len(top_H_indicies)):
         guess_idx_global = guess_indicies[top_H_indicies[i]]
         pattern_matrix_row = full_pattern_matrix[guess_idx_global, answer_indicies]
         all_counts = np.bincount(pattern_matrix_row, minlength=243)
@@ -219,8 +246,8 @@ def logged_recursive_search(
         precalculated_data.append((pattern_matrix_row, patterns, probabilities))
 
     # --- Main Execution Loop with Smooth Progress Bar ---
-    with tqdm(total=total_patterns_to_explore, desc=f"Checking top {NPRUNE} words to depth {depth}") as pbar:
-        for i in range(NPRUNE):
+    with tqdm(total=total_patterns_to_explore, desc=f"Checking top {nprune} words to depth {depth}") as pbar:
+        for i in range(len(top_H_indicies)):
             guess_idx_local = top_H_indicies[i]
             # Retrieve the pre-calculated data for this word
             pattern_matrix_row, patterns, probabilities = precalculated_data[i]
@@ -228,31 +255,92 @@ def logged_recursive_search(
             weighted_H = 0.0
             for (px, pattern) in zip(probabilities, patterns):
                 next_answer_indicies = answer_indicies[pattern_matrix_row == pattern]
-                if len(next_answer_indicies) <= 1:
-                    next_H = 0.0
-                else:
-                    next_guess_indicies = np.delete(guess_indicies, guess_idx_local)
-                    # Call the fast, compiled function for the deeper search
-                    next_H, _ = recursive_search(full_pattern_matrix, next_guess_indicies, next_answer_indicies, depth - 1)
+                next_guess_indicies = np.delete(guess_indicies, guess_idx_local)
+                # Call the fast, compiled function for the deeper search
+                next_H, _ = recursive_search(full_pattern_matrix, next_guess_indicies, next_answer_indicies, depth - 1, nprune)
                 
                 weighted_H += px * next_H
                 pbar.update(1) # Update the progress bar for each pattern explored
             
             top_H_values[i] += weighted_H
 
-    best_local_index = top_H_indicies[np.argmax(top_H_values)]
-    return (np.max(top_H_values), guess_indicies[best_local_index])
+    sorted_final_indices = np.argsort(top_H_values)[::-1]
+    best_local_indices = top_H_indicies[sorted_final_indices]
+    best_scores = top_H_values[sorted_final_indices]
+    best_global_indices = guess_indicies[best_local_indices]
+    return list(zip(best_scores, best_global_indices))
 
+def play_wordle(guesses: np.ndarray[str], answers: np.ndarray[str], pattern_matrix: np.ndarray[int], search_depth=3, nprune=50, starting_guess: str = None):
+    guess_indicies = np.arange(0, len(guesses))
+    answer_indicies = np.arange(0, len(answers))
+    for i in range(6):
+        print(f'\nRound {i+1}')
+        print(f'The current solution space has {len(answer_indicies)} words.')
+
+        if i != 0 or starting_guess is None: # Do a search if not round one or no starting_guess was provided
+            depth = min(search_depth, 6-i)
+
+            top_words_results = logged_recursive_search(pattern_matrix, guess_indicies, answer_indicies, depth, nprune)
+
+            if not top_words_results:
+                print("Could not determine a best word. The remaining words might be the only option.")
+                if len(answer_indicies) == 1:
+                    print(f"The only remaining word is {answers[answer_indicies[0]].upper()}")
+                return
+
+            print("\nTop 5 recommended words to play:")
+            # Take the top 5 from the results
+            for j, (score, guess_idx) in enumerate(top_words_results[:5]):
+                guess_word: str = guesses[guess_idx]
+                # Calculate immediate entropy for display, as it's more intuitive
+                if len(answer_indicies) == 1:
+                    immediate_entropy = 0.0
+                else:
+                    immediate_entropy = fast_entropies(pattern_matrix, np.array([guess_idx]), answer_indicies)[0]
+                print(f"  {j+1}. {guess_word.upper()} (Score: {score:.3f}, Info: {immediate_entropy:.3f} bits, Words after play: {int(len(answer_indicies)//(2**(immediate_entropy)))})")
+
+            word_played = input("Word played: ").lower()
+        else:
+            print(f"Word played: {starting_guess.upper()}")
+            word_played = starting_guess
+
+        word_idx = np.where(guesses == word_played)[0]
+
+        pattern = input("Pattern seeen: ")
+        pattern_list = []
+        for c in pattern.upper():
+            match c:
+                case "G": pattern_list.append(GREEN)
+                case "Y": pattern_list.append(YELLOW)
+                case _: pattern_list.append(GRAY)
+        
+        if pattern_list == 5*[GREEN]:
+            print(f"Solution found in {i+1} guesses. Word was {guess_word.upper()}.")
+            return
+
+        pattern_int = pattern_to_int(pattern_list)
+        pattern_matrix_row = pattern_matrix[word_idx, answer_indicies]
+        answer_indicies = answer_indicies[pattern_matrix_row == pattern_int]
+        guess_indicies = np.delete(guess_indicies, np.isin(guess_indicies, word_idx))
+    print('Failed to find a solution.')
+    return
+
+def filter_words_by_occurance(words: np.ndarray, min_freq: float = 1e-7) -> np.ndarray:
+    common_words = []
+    print(f"Filtering {len(words)} words with a minimum frequency of {min_freq}...")
+    
+    # Using tqdm to create a progress bar
+    for word in tqdm(words, desc="Analyzing word frequency"):
+        # 'word_frequency' returns the frequency of the word in English ('en').
+        # If the word is not found, it returns 0.
+        frequency = wordfreq.word_frequency(word.lower(), 'en')
+        if frequency >= min_freq:
+            common_words.append(word)
+    return np.array(common_words)
 
 if __name__ == "__main__":
-    words = get_valid_words(refetch=False) # Get all possible words
-    pattern_matrix = get_pattern_matrix(words, words, recompute=False) # Get full pattern matrix (all guesses x all answers)
+    guesses = get_words(refetch=False) # Get all possible words
+    answers = filter_words_by_occurance(guesses)
+    pattern_matrix = get_pattern_matrix(guesses, answers, recompute=True, save=False)
 
-    nwords = len(words)
-    guess_indicies = np.arange(0, nwords)
-    answer_indicies = np.arange(0, nwords)
-
-    start_time = time.time()
-    H_top, guess_idx = logged_recursive_search(pattern_matrix, guess_indicies, answer_indicies, NDEPTH)
-
-    print(f'The word {words[guess_idx].upper()} with {H_top:.3f} bits was found in {time.time()-start_time:.1f} sec.')
+    play_wordle(guesses, answers, pattern_matrix, search_depth=1, nprune=250, starting_guess='salet')
