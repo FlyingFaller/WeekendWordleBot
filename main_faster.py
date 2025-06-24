@@ -182,22 +182,26 @@ def FNV_hash(arr: np.ndarray) -> np.int64:
         h = h * np.uint64(1099511628211)  # FNV_prime for 64-bit
     return np.int64(h)
 
-@njit(parallel=False, cache=True)
+@njit(cache=True)
 def recursive_engine(pattern_matrix: np.ndarray, 
                      nguesses: int,
                      ans_idxs: np.ndarray, 
                      depth: int, 
                      nprune: int,
-                     cache: dict,
+                     global_cache: dict,
+                     local_cache: dict,
                      event_counter: np.ndarray) -> float:
     # the question this should answer is, on average, how many words remain in the answer set after playing
     # N (depth) guesses 
     ### CACHE LOOKUP ###
     # key = (PNR_hash(ans_idxs), depth)
     key = (FNV_hash(ans_idxs), depth)
-    if key in cache:
-        event_counter[5] += 1  # Increment the "cache hit" counter
-        return cache[key]
+    if key in local_cache:
+        event_counter[6] += 1  # Increment the "local cache hit" counter
+        return local_cache[key]
+    if key in global_cache:
+        event_counter[5] += 1  # Increment the "global cache hit" counter
+        return global_cache[key]
 
     nanswers = len(ans_idxs)
 
@@ -221,7 +225,7 @@ def recursive_engine(pattern_matrix: np.ndarray,
         # More aggressively finds cases where the word is good enough to reduce the search space to zero by end of guesses
         if np.max(pcounts) <= depth:
             event_counter[1] += 1
-            cache[key] = 0.0
+            local_cache[key] = 0.0
             return 0.0
 
         pattern_data.append((patterns, pcounts))
@@ -238,7 +242,7 @@ def recursive_engine(pattern_matrix: np.ndarray,
         pattern_row = pattern_columns[candidate_idx]
         patterns, pcounts = pattern_data[candidate_idx]
         for (pattern, count) in zip(patterns, pcounts): 
-            if depth == 1: # Final search
+            if depth == 1 and count > 1: # Final search
                 event_counter[4] += 1
                 score += count*np.log2(count)
             # elif count <= 2: # Depth > 1, Landing in this pattern would result in an instant solve by the end of our guesses
@@ -247,17 +251,23 @@ def recursive_engine(pattern_matrix: np.ndarray,
             elif count > 2: # Depth > 1 && Words remaining as a result of this pattern are > 2
                 event_counter[3] += 1
                 next_ans_idxs = ans_idxs[pattern_row == pattern] # Remove non-matching answers from solution set
-                score += count*recursive_engine(pattern_matrix, nguesses, next_ans_idxs, depth-1, nprune, cache, event_counter)
+                score += count*recursive_engine(pattern_matrix, nguesses, next_ans_idxs, depth-1, nprune, global_cache, local_cache, event_counter)
             else:
                 event_counter[2] += 1
                 
         candidate_scores[i] = score/nanswers
     result = np.min(candidate_scores)
-    cache[key] = result
+    local_cache[key] = result
     return result
     
-# @njit(cache=True, parallel=True)
-def get_top_words(pattern_matrix, guesses, answers, depth, nprune, cache) -> tuple[np.ndarray[str], np.ndarray[float]]:
+@njit(cache=True, parallel=True)
+def get_top_words(pattern_matrix: np.ndarray[int], 
+                  guesses: np.ndarray[str], 
+                  answers: np.ndarray[str], 
+                  depth: int, 
+                  nprune: int, 
+                  global_cache: dict, 
+                  local_caches: dict) -> tuple[np.ndarray[str], np.ndarray[float], np.ndarray[int]]:
     """This function should return the best words to play and a bunch of info"""
     # Compute top nprune words greedily
     # Create thread pool for searching down further in the top words
@@ -272,8 +282,9 @@ def get_top_words(pattern_matrix, guesses, answers, depth, nprune, cache) -> tup
     nguesses = len(guesses)
     ans_idxs = np.arange(0, nanswers)
     gss_idxs = np.arange(0, nguesses)
+    nthreads = len(local_caches)
 
-    event_counter = np.zeros(6, dtype=np.int32)
+    event_counter = np.zeros(7, dtype=np.int32)
 
     ### COMPILE NEXT GUESSES ###
     pattern_data = []
@@ -305,29 +316,41 @@ def get_top_words(pattern_matrix, guesses, answers, depth, nprune, cache) -> tup
     ### EVALUTE CANDIDATE GUESSES ###
     candidate_idxs = np.argsort(entropy_vals)[-nprune:]
     candidate_scores = np.zeros(nprune, dtype=np.float64) # probable number of answers left after depth guesses
-    for i in prange(nprune): # Make one of the top guesses
-        score = 0.0
-        candidate_idx = candidate_idxs[i]
-        pattern_row = pattern_columns[candidate_idx]
-        patterns, pcounts = pattern_data[candidate_idx]
-        for (pattern, count) in zip(patterns, pcounts): 
-            if depth == 1: # Final search
-                event_counter[4] += 1
-                score += count*np.log2(count)
-            elif count > 2: # Depth > 1 && Words remaining as a result of this pattern are > 2
-                event_counter[3] += 1
-                next_ans_idxs = ans_idxs[pattern_row == pattern] # Remove non-matching answers from solution set
-                score += count*recursive_engine(pattern_matrix, nguesses, next_ans_idxs, depth-1, nprune, cache, event_counter)
-            else:
-                event_counter[2] += 1
-                
-        candidate_scores[i] = score/nanswers
+
+    ### BATCH PARALLEL SEARCH ###
+    for batch_start in range(0, nprune, nthreads):
+        batch_end = min(batch_start + nthreads, nprune)
+
+        # for idx in prange(nprune): # Make one of the top guesses
+        for i in prange(batch_end - batch_start):
+            idx = i + batch_start
+            score = 0.0
+            candidate_idx = candidate_idxs[idx]
+            pattern_row = pattern_columns[candidate_idx]
+            patterns, pcounts = pattern_data[candidate_idx]
+            for (pattern, count) in zip(patterns, pcounts): 
+                if depth == 1: # Final search
+                    event_counter[4] += 1
+                    score += count*np.log2(count)
+                elif count > 2: # Depth > 1 && Words remaining as a result of this pattern are > 2
+                    event_counter[3] += 1
+                    next_ans_idxs = ans_idxs[pattern_row == pattern] # Remove non-matching answers from solution set
+                    score += count*recursive_engine(pattern_matrix, nguesses, next_ans_idxs, depth-1, nprune, global_cache, local_caches[i], event_counter)
+                else:
+                    event_counter[2] += 1
+                    
+            candidate_scores[idx] = score/nanswers
+
+        for local_cache in local_caches:
+            for key, value in local_cache.items():
+                if key not in global_cache:
+                    global_cache[key] = value
 
     return_lidxs = np.argsort(candidate_scores)
     return_gidxs = candidate_idxs[return_lidxs]
     return_scores = candidate_scores[return_lidxs]
     return_words = guesses[return_gidxs]
-    return (return_words, return_scores)
+    return (return_words, return_scores, event_counter)
 
 if __name__ == "__main__":
 
@@ -335,36 +358,28 @@ if __name__ == "__main__":
     answers = filter_words_by_occurance(guesses)
     pattern_matrix = get_pattern_matrix(guesses, answers, savefile='filtered_pattern_matrix.npy', recompute=False, save=True)
 
-    # Use a boolean mask from the start
-    # ans_idxs = np.arange(0, len(answers))
-    # nguesses = len(guesses)
-
-    # event_counter = np.zeros(6, dtype=np.int32)
-    cache = Dict.empty(
+    batch_size = 16
+    global_cache = Dict.empty(
         key_type=types.Tuple((int64, int64)),
         value_type=float64
     )
+    local_caches = [Dict.empty(key_type=types.Tuple((int64, int64)),value_type=float64) for _ in range(batch_size)]
 
-    # print('\nWarm up call')
-    # warmup_start = time.time()
-    # recursive_engine(pattern_matrix, nguesses, ans_idxs, 1, 1, cache, event_counter)
-    # warmup_end = time.time()
-    # event_counter[0] = 0
-    # print("Starting Timing...")
-    # # Initialize the profiler
-    # # --- RUN THE CODE TO BE PROFILED ---
-    depth = 5
-    nprune = 2
-    # start = time.time()
-    # result = recursive_engine(pattern_matrix, nguesses, ans_idxs, depth, nprune, cache, event_counter)
-    # end = time.time()
-    # # ------------------------------------
-    # print(f"Warm up took {warmup_end - warmup_start :.5f} seconds. Subsequent execution took {end - start :.5f} seconds.")
-    # print(f"At a depth {depth} pruning to {nprune} guesses: ")
-    # print(f"Expected remaining entropy: {result}.")
-    # print(f"Entropy calc skips: {event_counter[0]}, Entropy calc returns: {event_counter[1]}, Recursion skips: {event_counter[2]}, Recursions: {event_counter[3]}, Cache hits: {event_counter[5]}, Leaf node calcs: {event_counter[4]}")
-    
-    words, rem_entropies = get_top_words(pattern_matrix, guesses, answers, depth, nprune, cache)
-    print(f"The best {nprune} words after depth {depth} search")
+    depth = 3
+    nprune = 30
+
+    start_time = time.time()
+    words, rem_entropies, event_counter = get_top_words(pattern_matrix, guesses, answers, depth, nprune, global_cache, local_caches)
+    end_time = time.time()
+
+    print(f"Stats:")
+    print(f"{'Entropy loop skips':.<40}{event_counter[0]}")
+    print(f"{'Entropy loop returns':.<40}{event_counter[1]}")
+    print(f"{'Low pattern count recursion skips':.<40}{event_counter[2]}")
+    print(f"{'Recursions':.<40}{event_counter[3]}")
+    print(f"{'Leaf node calculations':.<40}{event_counter[4]}")
+    print(f"{"Global cache hits":.<40}{event_counter[5]}")
+    print(f"{'Local cache hits':.<40}{event_counter[6]}")
+    print(f"The best {nprune} words after depth {depth} search. Time taken: {end_time - start_time:.5f} sec.")
     for i, word in enumerate(words):
-        print(f"{i+1}. {word.upper()}: {rem_entropies[i]:.3f} bits remaining.")
+        print(f"{i+1}. {word.upper()}: {rem_entropies[i]:.5f} bits remaining.")
