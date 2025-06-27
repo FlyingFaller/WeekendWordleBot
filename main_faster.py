@@ -5,13 +5,13 @@ from tqdm import tqdm
 import random
 import multiprocessing
 import time
-from numba import njit, prange, int32, float64, int64
-from numba.experimental import jitclass
+from numba import njit, prange, float64, int64
 from numba.core import types
 from numba.typed import Dict
 import wordfreq
 
 VALID_WORDS_URL = "https://gist.github.com/dracos/dd0668f281e685bad51479e5acaadb93/raw/6bfa15d263d6d5b63840a8e5b64e04b382fdb079/valid-wordle-words.txt"
+ORIGINAL_ANSWER_URL = "https://gist.github.com/cfreshman/a03ef2cba789d8cf00c08f767e0fad7b/raw/c46f451920d5cf6326d550fb2d6abb1642717852/wordle-answers-alphabetical.txt"
 VALID_WORDS_FILE = "valid_words.txt"
 PATTERN_MATRIX_FILE = "pattern_matrix.npy"
 GREEN = 2
@@ -38,6 +38,16 @@ def get_pattern(guess: str, answer: str) -> list[int]:
             letter_count[str(guess[i])] -= 1
 
     return pattern
+
+def pattern_str_to_int(pattern: str) -> int:
+    pattern_list = []
+    for c in pattern.upper():
+        match c:
+            case "G": pattern_list.append(GREEN)
+            case "Y": pattern_list.append(YELLOW)
+            case _: pattern_list.append(GRAY)
+
+    return pattern_to_int(pattern_list)
 
 def pattern_to_int(pattern: list[int]) -> int:
     """Converts a pattern list represeting a wordle pattern to a unique int"""
@@ -107,6 +117,17 @@ def get_words(savefile=VALID_WORDS_FILE, url=VALID_WORDS_URL, refetch=False, sav
     except requests.exceptions.RequestException as e:
         print(f"Error downloading the word list: {e}")
         return np.array([], dtype=str)
+
+def get_word_freqs(words: np.ndarray[str]) -> np.ndarray[float]:
+    frequencies = np.zeros(len(words))
+    for i, word in enumerate(words):
+        frequencies[i] = wordfreq.word_frequency(word.lower(), 'en')
+    return frequencies
+
+def get_minimum_freq(words: np.ndarray[str]) -> tuple[float, int, str]:
+    frequencies = get_word_freqs(words)
+    word_idx = np.argmin(frequencies)
+    return (np.min(frequencies), word_idx, words[word_idx])
 
 def filter_words_by_occurance(words: np.ndarray, min_freq: float = 1e-7) -> np.ndarray:
     common_words = []
@@ -245,9 +266,6 @@ def recursive_engine(pattern_matrix: np.ndarray,
             if depth == 1 and count > 1: # Final search
                 event_counter[4] += 1
                 score += count*np.log2(count)
-            # elif count <= 2: # Depth > 1, Landing in this pattern would result in an instant solve by the end of our guesses
-            #     recursion_skip[0] += 1
-            #     score += 1
             elif count > 2: # Depth > 1 && Words remaining as a result of this pattern are > 2
                 event_counter[3] += 1
                 next_ans_idxs = ans_idxs[pattern_row == pattern] # Remove non-matching answers from solution set
@@ -263,9 +281,11 @@ def recursive_engine(pattern_matrix: np.ndarray,
 @njit(cache=True, parallel=True)
 def get_top_words(pattern_matrix: np.ndarray[int], 
                   guesses: np.ndarray[str], 
-                  answers: np.ndarray[str], 
+                  ans_idxs: np.ndarray[int], 
+                  ans_to_gss_map: np.ndarray[int],
                   depth: int, 
-                  nprune: int, 
+                  nprune_global: int, 
+                  nprune_answers: int,
                   global_cache: dict, 
                   local_caches: dict) -> tuple[np.ndarray[str], np.ndarray[float], np.ndarray[int]]:
     """This function should return the best words to play and a bunch of info"""
@@ -278,13 +298,11 @@ def get_top_words(pattern_matrix: np.ndarray[int],
     # Need to add endgame checks.
 
     ### SETUP ###
-    nanswers = len(answers)
+    nanswers = len(ans_idxs)
     nguesses = len(guesses)
-    ans_idxs = np.arange(0, nanswers)
-    gss_idxs = np.arange(0, nguesses)
     nthreads = len(local_caches)
 
-    event_counter = np.zeros(7, dtype=np.int32)
+    event_counter = np.zeros(8, dtype=np.int32)
 
     ### COMPILE NEXT GUESSES ###
     pattern_data = []
@@ -302,24 +320,26 @@ def get_top_words(pattern_matrix: np.ndarray[int],
             continue
 
         pcounts = all_pcounts[patterns]
-
-        # More aggressively finds cases where the word is good enough to reduce the search space to zero by end of guesses
-        # if np.max(pcounts) <= depth:
-        #     event_counter[1] += 1
-        #     return 0.0
-
         pattern_data.append((patterns, pcounts))
 
         sum_c_log2_c = np.sum(pcounts * np.log2(pcounts))
         entropy_vals[i] = log2_nanswers - (sum_c_log2_c / nanswers)
 
     ### EVALUTE CANDIDATE GUESSES ###
-    candidate_idxs = np.argsort(entropy_vals)[-nprune:]
-    candidate_scores = np.zeros(nprune, dtype=np.float64) # probable number of answers left after depth guesses
+    ans_gidxs = ans_to_gss_map[ans_idxs]
+    ans_entropy_vals = entropy_vals[ans_gidxs]
+    ans_candidate_idxs = ans_gidxs[np.argsort(ans_entropy_vals)[-nprune_answers:]]
+
+    gss_candidate_idxs = np.argsort(entropy_vals)[-nprune_global:]
+
+    candidate_idxs = np.union1d(gss_candidate_idxs, ans_candidate_idxs)
+    ncandidates = len(candidate_idxs)
+    candidate_scores = np.zeros(ncandidates, dtype=np.float64) # probable number of answers left after depth guesses
 
     ### BATCH PARALLEL SEARCH ###
-    for batch_start in range(0, nprune, nthreads):
-        batch_end = min(batch_start + nthreads, nprune)
+    for batch_start in range(0, ncandidates, nthreads):
+        batch_end = min(batch_start + nthreads, ncandidates)
+        event_counter[7] += 1
 
         # for idx in prange(nprune): # Make one of the top guesses
         for i in prange(batch_end - batch_start):
@@ -329,13 +349,13 @@ def get_top_words(pattern_matrix: np.ndarray[int],
             pattern_row = pattern_columns[candidate_idx]
             patterns, pcounts = pattern_data[candidate_idx]
             for (pattern, count) in zip(patterns, pcounts): 
-                if depth == 1: # Final search
+                if depth == 1 and count > 1: # Final search
                     event_counter[4] += 1
                     score += count*np.log2(count)
                 elif count > 2: # Depth > 1 && Words remaining as a result of this pattern are > 2
                     event_counter[3] += 1
                     next_ans_idxs = ans_idxs[pattern_row == pattern] # Remove non-matching answers from solution set
-                    score += count*recursive_engine(pattern_matrix, nguesses, next_ans_idxs, depth-1, nprune, global_cache, local_caches[i], event_counter)
+                    score += count*recursive_engine(pattern_matrix, nguesses, next_ans_idxs, depth-1, nprune_global, global_cache, local_caches[i], event_counter)
                 else:
                     event_counter[2] += 1
                     
@@ -352,34 +372,141 @@ def get_top_words(pattern_matrix: np.ndarray[int],
     return_words = guesses[return_gidxs]
     return (return_words, return_scores, event_counter)
 
-if __name__ == "__main__":
-
-    guesses = get_words(refetch=False)
-    answers = filter_words_by_occurance(guesses)
-    pattern_matrix = get_pattern_matrix(guesses, answers, savefile='filtered_pattern_matrix.npy', recompute=False, save=True)
-
-    batch_size = 16
+def play_wordle(pattern_matrix, guesses, answers, nprune_global, nprune_answers, starting_guess: str=None, batch_size=16, show_stats=False):
+    # Cache construction
     global_cache = Dict.empty(
         key_type=types.Tuple((int64, int64)),
         value_type=float64
     )
-    local_caches = [Dict.empty(key_type=types.Tuple((int64, int64)),value_type=float64) for _ in range(batch_size)]
+    local_caches = [Dict.empty(key_type=types.Tuple((int64, int64)), value_type=float64) for _ in range(batch_size)]
 
-    depth = 3
-    nprune = 30
+    # indices stuff
+    ans_to_gss_map = np.where(np.isin(guesses, answers))[0] # indices of answers in the guess list
+    ans_idxs = np.arange(0, len(answers))
 
-    start_time = time.time()
-    words, rem_entropies, event_counter = get_top_words(pattern_matrix, guesses, answers, depth, nprune, global_cache, local_caches)
-    end_time = time.time()
+    # Gameplay loop
+    for round_number in range(6):
+        print(f"\n%%%%%%%%%% ROUND {round_number + 1} %%%%%%%%%%")
 
-    print(f"Stats:")
-    print(f"{'Entropy loop skips':.<40}{event_counter[0]}")
-    print(f"{'Entropy loop returns':.<40}{event_counter[1]}")
-    print(f"{'Low pattern count recursion skips':.<40}{event_counter[2]}")
-    print(f"{'Recursions':.<40}{event_counter[3]}")
-    print(f"{'Leaf node calculations':.<40}{event_counter[4]}")
-    print(f"{"Global cache hits":.<40}{event_counter[5]}")
-    print(f"{'Local cache hits':.<40}{event_counter[6]}")
-    print(f"The best {nprune} words after depth {depth} search. Time taken: {end_time - start_time:.5f} sec.")
-    for i, word in enumerate(words):
-        print(f"{i+1}. {word.upper()}: {rem_entropies[i]:.5f} bits remaining.")
+        ans_remaining = len(ans_idxs)
+        print(f"Answers still remaining: {ans_remaining}\n")
+
+        # Break early if we know the answer
+        if ans_remaining == 1:
+            print(f"\nSolution found in {round_number+1} guesses. Word is {answers[ans_idxs[0]].upper()}.")
+            return
+            
+        # Normal guess generation or skip if starting_guess is set
+        if round_number != 0 or starting_guess is None:
+
+            # Search multiple depths till best words are found
+            start_time = time.time()
+            # for depth in range(1, max(2, 6 - round_number)):
+            for depth in range(max(1, min(5 - round_number, 3)), 0, -1):
+                print(f"Searching depth {depth}")
+                words, rem_entropies, event_counter = get_top_words(pattern_matrix, 
+                                                                    guesses, 
+                                                                    ans_idxs, 
+                                                                    ans_to_gss_map, 
+                                                                    depth, 
+                                                                    nprune_global, 
+                                                                    nprune_answers,
+                                                                    global_cache, 
+                                                                    local_caches)
+                if rem_entropies[0] > 0:
+                    break
+
+            end_time = time.time()
+            
+            # sort results
+            results = list(zip(words, rem_entropies))
+            current_answer_set = set(answers[ans_idxs])
+
+            def sort_key(item):
+                word = item[0]
+                entropy = item[1]
+                entropy_key = entropy
+                answer_key = word not in current_answer_set
+                frequency_key = -wordfreq.word_frequency(word, 'en')
+
+                return (entropy_key, answer_key, frequency_key)
+            
+            sorted_results = sorted(results, key=sort_key)
+            
+            # show stats
+            print(f"\nSearch completed in {end_time - start_time:.5f} seconds.")
+            if show_stats:
+                print(f"\nStats:")
+                print(f"{'Entropy loop skips':.<40}{event_counter[0]}")
+                print(f"{'Entropy loop returns':.<40}{event_counter[1]}")
+                print(f"{'Low pattern count recursion skips':.<40}{event_counter[2]}")
+                print(f"{'Recursions':.<40}{event_counter[3]}")
+                print(f"{'Leaf node calculations':.<40}{event_counter[4]}")
+                print(f"{"Global cache hits":.<40}{event_counter[5]}")
+                print(f"{'Local cache hits':.<40}{event_counter[6]}")
+                print(f"{'Batches':.<40}{event_counter[7]}")
+
+            # show results
+            print(f"\nThe best {len(words)} words after depth {depth} search are:")
+            for i, (word, entropy) in enumerate(sorted_results):
+                annotation = ""
+                if word in current_answer_set:
+                    annotation = "[Possible Answer]"
+                    
+                print(f"{i+1:>3}. {word.upper():<6} | Entropy: {entropy:.4f} {annotation}")
+
+            # recommend a word
+            recommendation = sorted_results[0][0]
+            if depth < 2:
+                for word, entropy in sorted_results:
+                    if word in current_answer_set and entropy <= 0.5:
+                        recommendation = word
+                        break
+            
+            print(f"\nCOMPUTER RECOMMENDATION: {recommendation.upper()}")
+
+            guess_played = input("\nGuess played: ").lower()
+        else:
+            print(f"Guess played: {starting_guess.upper()}")
+            guess_played = starting_guess.lower()
+
+        # Verify guess and pattern inputs
+        guess_played_idx = np.where(guesses == guess_played)[0]
+        while len(guess_played_idx) != 1:
+            print("\nGuess not found in guess list, please re-enter.")
+            guess_played = input("Guess played: ").lower()
+            guess_played_idx = np.where(guesses == guess_played)[0]
+
+        pattern_matrix_row = pattern_matrix[guess_played_idx, ans_idxs]
+        while True:
+            pattern = input("Pattern seen: ").upper()
+            if len(pattern) != 5:
+                print("\nInvalid pattern entry, please re-enter.")
+                continue
+                
+            pattern_int = pattern_str_to_int(pattern)
+            next_ans_idxs = ans_idxs[pattern_matrix_row == pattern_int]
+
+            if len(next_ans_idxs) < 1:
+                print("\nNo matching solutions found, please re-enter.")
+                continue
+            else:
+                ans_idxs = next_ans_idxs
+                break
+        
+        # check we didn't just solve it on the last guess
+        if pattern_int == pattern_to_int(5*[GREEN]):
+            print(f"\nSolution found in {round_number+1} guesses. Word is {guess_played.upper()}.")
+            return
+
+if __name__ == "__main__":
+
+    guesses = get_words(refetch=False)
+    original_answers = get_words(url=ORIGINAL_ANSWER_URL, refetch=True, save=False)
+    freq, idx, word = get_minimum_freq(original_answers)
+    # print(f"{word.upper()} has a minimum frequency of {freq}")
+    answers = filter_words_by_occurance(guesses, min_freq=freq)
+    print(f"Considering {len(answers)} answers with frequencies > {freq}")
+    pattern_matrix = get_pattern_matrix(guesses, answers, savefile='filtered_pattern_matrix.npy', recompute=True, save=False)
+
+    play_wordle(pattern_matrix, guesses, answers, nprune_global=30, nprune_answers=1, starting_guess=None, show_stats=True)
