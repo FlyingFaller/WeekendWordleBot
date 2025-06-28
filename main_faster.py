@@ -279,15 +279,15 @@ def recursive_engine(pattern_matrix: np.ndarray,
     return result
     
 @njit(cache=True, parallel=True)
-def get_top_words(pattern_matrix: np.ndarray[int], 
-                  guesses: np.ndarray[str], 
-                  ans_idxs: np.ndarray[int], 
-                  ans_to_gss_map: np.ndarray[int],
-                  depth: int, 
-                  nprune_global: int, 
-                  nprune_answers: int,
-                  global_cache: dict, 
-                  local_caches: dict) -> tuple[np.ndarray[str], np.ndarray[float], np.ndarray[int]]:
+def recursive_root(pattern_matrix: np.ndarray[int], 
+                   guesses: np.ndarray[str], 
+                   ans_idxs: np.ndarray[int], 
+                   ans_to_gss_map: np.ndarray[int],
+                   depth: int, 
+                   nprune_global: int, 
+                   nprune_answers: int,
+                   global_cache: dict, 
+                   local_caches: dict) -> tuple[np.ndarray[str], np.ndarray[float], np.ndarray[int]]:
     """This function should return the best words to play and a bunch of info"""
     # Compute top nprune words greedily
     # Create thread pool for searching down further in the top words
@@ -404,15 +404,15 @@ def play_wordle(pattern_matrix, guesses, answers, nprune_global, nprune_answers,
             # for depth in range(1, max(2, 6 - round_number)):
             for depth in range(max(1, min(5 - round_number, 3)), 0, -1):
                 print(f"Searching depth {depth}")
-                words, rem_entropies, event_counter = get_top_words(pattern_matrix, 
-                                                                    guesses, 
-                                                                    ans_idxs, 
-                                                                    ans_to_gss_map, 
-                                                                    depth, 
-                                                                    nprune_global, 
-                                                                    nprune_answers,
-                                                                    global_cache, 
-                                                                    local_caches)
+                words, rem_entropies, event_counter = recursive_root(pattern_matrix, 
+                                                                     guesses, 
+                                                                     ans_idxs, 
+                                                                     ans_to_gss_map, 
+                                                                     depth, 
+                                                                     nprune_global, 
+                                                                     nprune_answers,
+                                                                     global_cache, 
+                                                                     local_caches)
                 if rem_entropies[0] > 0:
                     break
 
@@ -499,6 +499,87 @@ def play_wordle(pattern_matrix, guesses, answers, nprune_global, nprune_answers,
             print(f"\nSolution found in {round_number+1} guesses. Word is {guess_played.upper()}.")
             return
 
+class wordle_game:
+    def __init__(self, pattern_matrix, guesses, answers, nprune_global, nprune_answers, batch_size=16):
+        self.pattern_matrix = pattern_matrix
+        self.guess_set = guesses
+        self.answer_set = answers
+        self.nprune_global = nprune_global
+        self.nprune_answers = nprune_answers
+        self.batch_size = batch_size
+        self.global_cache = Dict.empty(key_type=types.Tuple((int64, int64)), value_type=float64)
+        self.local_caches = [Dict.empty(key_type=types.Tuple((int64, int64)), value_type=float64) for _ in range(batch_size)]
+        self.ans_to_gss_map = np.where(np.isin(guesses, answers))[0]
+        self.ans_idxs = np.arange(0, len(answers))
+        self.solved = False
+        self.guesses_played = []
+        self.patterns_seen = []
+
+    def make_guess(self, word: str, pattern: str) -> bool:
+        guess_played = word.lower()
+        guess_played_idx = np.where(self.guess_set == guess_played)[0]
+        if len(guess_played_idx) != 1:
+            return False
+        
+        pattern_matrix_row = pattern_matrix[guess_played_idx, self.ans_idxs]
+        pattern_str = pattern.upper()
+        if len(pattern_str) != 5:
+            return False
+        
+        pattern_int = pattern_str_to_int(pattern_str)
+        next_ans_idxs = self.ans_idxs[pattern_matrix_row == pattern_int]
+        if len(next_ans_idxs) < 1:
+            return False
+        
+        self.guesses_played.append(guess_played)
+        self.patterns_seen.append(pattern_int)
+        self.ans_idxs = next_ans_idxs
+        return True
+
+
+    def compute_next_guess(self) -> dict:
+        start_time = time.time()
+        for depth in range(3, 0, -1):
+            recursive_results = recursive_root(self.pattern_matrix, 
+                                               self.guess_set, 
+                                               self.ans_idxs, 
+                                               self.ans_to_gss_map, 
+                                               depth, 
+                                               self.nprune_global, 
+                                               self.nprune_answers,
+                                               self.global_cache, 
+                                               self.local_caches)
+            words, rem_entropies, event_counter = recursive_results
+            if rem_entropies[0] > 0:
+                break
+        end_time = time.time()
+
+        results = list(zip(words, rem_entropies))
+        current_answer_set = set(self.answer_set[self.ans_idxs])
+
+        def sort_key(item):
+            word = item[0]
+            entropy = item[1]
+            entropy_key = entropy
+            answer_key = word not in current_answer_set
+            frequency_key = -wordfreq.word_frequency(word, 'en')
+
+            return (entropy_key, answer_key, frequency_key)
+            
+        sorted_results = sorted(results, key=sort_key)
+
+        recommendation = sorted_results[0][0]
+        if depth < 2:
+            for word, entropy in sorted_results:
+                if word in current_answer_set and entropy <= 0.5:
+                    recommendation = word
+                    break
+
+        return {'recommendation': recommendation, 
+                'sorted_results': sorted_results,
+                'solve_time': end_time - start_time,
+                'event_counts': event_counter}
+
 if __name__ == "__main__":
 
     guesses = get_words(refetch=False)
@@ -509,4 +590,4 @@ if __name__ == "__main__":
     print(f"Considering {len(answers)} answers with frequencies > {freq}")
     pattern_matrix = get_pattern_matrix(guesses, answers, savefile='filtered_pattern_matrix.npy', recompute=True, save=False)
 
-    play_wordle(pattern_matrix, guesses, answers, nprune_global=30, nprune_answers=1, starting_guess=None, show_stats=True)
+    play_wordle(pattern_matrix, guesses, answers, nprune_global=25, nprune_answers=25, starting_guess="SALET", show_stats=True)
