@@ -18,6 +18,23 @@ GREEN = 2
 YELLOW = 1
 GRAY = 0
 
+# class GuessError(ValueError):
+#     """Base exception for errors during the guessing process."""
+#     pass
+
+class InvalidWordError(ValueError):
+    """Raised when the guessed word is not in the allowed word list."""
+    def __init__(self, word: str):
+        self.word = word
+        super().__init__(f"The word '{word}' is not a valid guess.")
+
+class InvalidPatternError(ValueError):
+    """Raised when the feedback pattern is invalid."""
+    def __init__(self, pattern: any, reason: str):
+        self.pattern = pattern
+        self.reason = reason
+        super().__init__(f"Invalid pattern '{pattern}': {reason}")
+
 def get_pattern(guess: str, answer: str) -> list[int]:
     """Calculates the wordle pattern for guess word and answer word."""
     pattern = [GRAY]*5
@@ -156,28 +173,6 @@ def compute_entropies(pattern_matrix: np.ndarray) -> np.ndarray:
 
         entropy = -np.sum(px*np.log2(px))
         entropy_vals[i] = entropy
-    return entropy_vals
-
-@njit(parallel=True, cache=True)
-def fast_entropies(pattern_matrix: np.ndarray, guess_indicies: np.ndarray, answer_indicies: np.ndarray) -> np.ndarray:
-    """Faster implementation of compute_entropies that takes the full pattern_matrix"""
-    nguesses = len(guess_indicies)
-    nanswers = len(answer_indicies)
-
-    entropy_vals = np.zeros(nguesses, dtype=np.float64)
-    if nanswers == 0: 
-        return entropy_vals
-    
-    # precalculation
-    log2_nanswers = np.log2(nanswers)
-
-    for i in prange(nguesses):
-        guess_idx = guess_indicies[i] # global index for current guess
-        pattern_row = pattern_matrix[guess_idx, answer_indicies] # get all patterns for the current guess
-        counts = np.bincount(pattern_row)
-        counts = counts[counts > 0]
-        sum_c_log2_c = np.sum(counts * np.log2(counts))
-        entropy_vals[i] = log2_nanswers - (sum_c_log2_c / nanswers)
     return entropy_vals
 
 @njit(cache=True)
@@ -511,33 +506,57 @@ class wordle_game:
         self.local_caches = [Dict.empty(key_type=types.Tuple((int64, int64)), value_type=float64) for _ in range(batch_size)]
         self.ans_to_gss_map = np.where(np.isin(guesses, answers))[0]
         self.ans_idxs = np.arange(0, len(answers))
+        self._old_ans_idxs = []
         self.solved = False
+        self.failed = False
         self.guesses_played = []
         self.patterns_seen = []
 
-    def make_guess(self, word: str, pattern: str) -> bool:
+    def make_guess(self, word: str, pattern: str|list[int]|int) -> None:
         guess_played = word.lower()
         guess_played_idx = np.where(self.guess_set == guess_played)[0]
         if len(guess_played_idx) != 1:
-            return False
+            raise InvalidWordError(word)
         
         pattern_matrix_row = pattern_matrix[guess_played_idx, self.ans_idxs]
-        pattern_str = pattern.upper()
-        if len(pattern_str) != 5:
-            return False
+        if isinstance(pattern, str):
+            pattern_str = pattern.upper()
+            if len(pattern_str) != 5:
+                raise InvalidPatternError(pattern, "pattern string must be 5 characters.")
+            pattern_int = pattern_str_to_int(pattern_str)
+        elif isinstance(pattern, int):
+            if pattern > 242 or pattern < 0:
+                raise InvalidPatternError(pattern, "pattern int must be in the range [0, 242].")
+            pattern_int = pattern
+        elif isinstance(pattern, list):
+            if len(pattern) != 5:
+                raise InvalidPatternError(pattern, "pattern list must have 5 elements.")
+            pattern_int = pattern_to_int(pattern)
+        else:
+            raise NotImplementedError(f'Cannot handle patterns of type {type(pattern)}')
         
-        pattern_int = pattern_str_to_int(pattern_str)
-        next_ans_idxs = self.ans_idxs[pattern_matrix_row == pattern_int]
-        if len(next_ans_idxs) < 1:
-            return False
-        
+        next_ans_idxs = self.ans_idxs[pattern_matrix_row == pattern_int]        
         self.guesses_played.append(guess_played)
         self.patterns_seen.append(pattern_int)
+        self._old_ans_idxs.append(self.ans_idxs)
         self.ans_idxs = next_ans_idxs
-        return True
-
+        self.update_game_state()
+        return (True, True)
 
     def compute_next_guess(self) -> dict:
+        self.update_game_state()
+        if self.solved:
+            solution = self.answer_set[self.ans_idxs[0]]
+            return {'recommendation': solution, 
+                    'sorted_results': [(solution, 0.0)], 
+                    'solve_time': 0.0, 
+                    'event_counter': np.zeros(8, dtype=np.int32)}
+        if self.failed:
+            return {'recommendation': None, 
+                    'sorted_results': [], 
+                    'solve_time': 0.0, 
+                    'event_counter': np.zeros(8, dtype=np.int32)}
+        
         start_time = time.time()
         for depth in range(3, 0, -1):
             recursive_results = recursive_root(self.pattern_matrix, 
@@ -579,6 +598,41 @@ class wordle_game:
                 'sorted_results': sorted_results,
                 'solve_time': end_time - start_time,
                 'event_counts': event_counter}
+    
+    def update_game_state(self):
+        """Want to check if no possible answer remain or the answer has been played"""
+        if len(self.ans_idxs) < 1:
+            self.failed = True
+            self.solved = False
+        elif self.patterns_seen[-1] == pattern_to_int(5*[GREEN]):
+            self.solved = True
+            self.failed = False
+    
+    def get_game_state(self) -> dict:
+        self.update_game_state()
+        answers_remaining = len(self.ans_idxs)
+        nguesses = len(self.guesses_played)
+        return {'answers_remaining': answers_remaining,
+                'nguesses': nguesses,
+                'guesses_played': self.guesses_played,
+                'patterns_seen': self.patterns_seen,
+                'solved': self.solved,
+                'failed': self.failed}
+
+    def pop_last_guess(self):
+        self.guesses_played.pop(-1)
+        self.patterns_seen.pop(-1)
+        self.ans_idxs = self._old_ans_idxs.pop(-1)
+        self.update_game_state()
+
+def play_wordle(pattern_matrix, guesses, answers, nprune_global, nprune_answers, starting_guess: str=None, batch_size=16, show_stats=False):
+    game_obj = wordle_game(pattern_matrix, guesses, answers, nprune_global, nprune_answers, batch_size)
+
+    # gameplay loop
+    for round_number in range(6):
+        print(f"\n%%%%%%%%%% ROUND {round_number + 1} %%%%%%%%%%")
+        
+    pass
 
 if __name__ == "__main__":
 
