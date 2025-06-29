@@ -18,10 +18,6 @@ GREEN = 2
 YELLOW = 1
 GRAY = 0
 
-# class GuessError(ValueError):
-#     """Base exception for errors during the guessing process."""
-#     pass
-
 class InvalidWordError(ValueError):
     """Raised when the guessed word is not in the allowed word list."""
     def __init__(self, word: str):
@@ -158,22 +154,6 @@ def filter_words_by_occurance(words: np.ndarray, min_freq: float = 1e-7) -> np.n
         if frequency >= min_freq:
             common_words.append(word)
     return np.array(common_words)
-
-def compute_entropies(pattern_matrix: np.ndarray) -> np.ndarray:
-    """Calculates the expected Shannon entropy for each guess considering all remaining answers."""
-    nguesses, nanswers = pattern_matrix.shape
-
-    if nanswers == 0: # If this triggers we have eliminated all possible answers...
-        return np.zeros(nguesses)
-
-    entropy_vals = np.zeros(nguesses)
-    for i in range(nguesses):
-        patterns, counts = np.unique(pattern_matrix[i], return_counts=True)
-        px = counts/nanswers
-
-        entropy = -np.sum(px*np.log2(px))
-        entropy_vals[i] = entropy
-    return entropy_vals
 
 @njit(cache=True)
 def PNR_hash(arr: np.ndarray) -> np.int64:
@@ -367,133 +347,6 @@ def recursive_root(pattern_matrix: np.ndarray[int],
     return_words = guesses[return_gidxs]
     return (return_words, return_scores, event_counter)
 
-def play_wordle(pattern_matrix, guesses, answers, nprune_global, nprune_answers, starting_guess: str=None, batch_size=16, show_stats=False):
-    # Cache construction
-    global_cache = Dict.empty(
-        key_type=types.Tuple((int64, int64)),
-        value_type=float64
-    )
-    local_caches = [Dict.empty(key_type=types.Tuple((int64, int64)), value_type=float64) for _ in range(batch_size)]
-
-    # indices stuff
-    ans_to_gss_map = np.where(np.isin(guesses, answers))[0] # indices of answers in the guess list
-    ans_idxs = np.arange(0, len(answers))
-
-    # Gameplay loop
-    for round_number in range(6):
-        print(f"\n%%%%%%%%%% ROUND {round_number + 1} %%%%%%%%%%")
-
-        ans_remaining = len(ans_idxs)
-        print(f"Answers still remaining: {ans_remaining}\n")
-
-        # Break early if we know the answer
-        if ans_remaining == 1:
-            print(f"\nSolution found in {round_number+1} guesses. Word is {answers[ans_idxs[0]].upper()}.")
-            return
-            
-        # Normal guess generation or skip if starting_guess is set
-        if round_number != 0 or starting_guess is None:
-
-            # Search multiple depths till best words are found
-            start_time = time.time()
-            # for depth in range(1, max(2, 6 - round_number)):
-            for depth in range(max(1, min(5 - round_number, 3)), 0, -1):
-                print(f"Searching depth {depth}")
-                words, rem_entropies, event_counter = recursive_root(pattern_matrix, 
-                                                                     guesses, 
-                                                                     ans_idxs, 
-                                                                     ans_to_gss_map, 
-                                                                     depth, 
-                                                                     nprune_global, 
-                                                                     nprune_answers,
-                                                                     global_cache, 
-                                                                     local_caches)
-                if rem_entropies[0] > 0:
-                    break
-
-            end_time = time.time()
-            
-            # sort results
-            results = list(zip(words, rem_entropies))
-            current_answer_set = set(answers[ans_idxs])
-
-            def sort_key(item):
-                word = item[0]
-                entropy = item[1]
-                entropy_key = entropy
-                answer_key = word not in current_answer_set
-                frequency_key = -wordfreq.word_frequency(word, 'en')
-
-                return (entropy_key, answer_key, frequency_key)
-            
-            sorted_results = sorted(results, key=sort_key)
-            
-            # show stats
-            print(f"\nSearch completed in {end_time - start_time:.5f} seconds.")
-            if show_stats:
-                print(f"\nStats:")
-                print(f"{'Entropy loop skips':.<40}{event_counter[0]}")
-                print(f"{'Entropy loop returns':.<40}{event_counter[1]}")
-                print(f"{'Low pattern count recursion skips':.<40}{event_counter[2]}")
-                print(f"{'Recursions':.<40}{event_counter[3]}")
-                print(f"{'Leaf node calculations':.<40}{event_counter[4]}")
-                print(f"{"Global cache hits":.<40}{event_counter[5]}")
-                print(f"{'Local cache hits':.<40}{event_counter[6]}")
-                print(f"{'Batches':.<40}{event_counter[7]}")
-
-            # show results
-            print(f"\nThe best {len(words)} words after depth {depth} search are:")
-            for i, (word, entropy) in enumerate(sorted_results):
-                annotation = ""
-                if word in current_answer_set:
-                    annotation = "[Possible Answer]"
-                    
-                print(f"{i+1:>3}. {word.upper():<6} | Entropy: {entropy:.4f} {annotation}")
-
-            # recommend a word
-            recommendation = sorted_results[0][0]
-            if depth < 2:
-                for word, entropy in sorted_results:
-                    if word in current_answer_set and entropy <= 0.5:
-                        recommendation = word
-                        break
-            
-            print(f"\nCOMPUTER RECOMMENDATION: {recommendation.upper()}")
-
-            guess_played = input("\nGuess played: ").lower()
-        else:
-            print(f"Guess played: {starting_guess.upper()}")
-            guess_played = starting_guess.lower()
-
-        # Verify guess and pattern inputs
-        guess_played_idx = np.where(guesses == guess_played)[0]
-        while len(guess_played_idx) != 1:
-            print("\nGuess not found in guess list, please re-enter.")
-            guess_played = input("Guess played: ").lower()
-            guess_played_idx = np.where(guesses == guess_played)[0]
-
-        pattern_matrix_row = pattern_matrix[guess_played_idx, ans_idxs]
-        while True:
-            pattern = input("Pattern seen: ").upper()
-            if len(pattern) != 5:
-                print("\nInvalid pattern entry, please re-enter.")
-                continue
-                
-            pattern_int = pattern_str_to_int(pattern)
-            next_ans_idxs = ans_idxs[pattern_matrix_row == pattern_int]
-
-            if len(next_ans_idxs) < 1:
-                print("\nNo matching solutions found, please re-enter.")
-                continue
-            else:
-                ans_idxs = next_ans_idxs
-                break
-        
-        # check we didn't just solve it on the last guess
-        if pattern_int == pattern_to_int(5*[GREEN]):
-            print(f"\nSolution found in {round_number+1} guesses. Word is {guess_played.upper()}.")
-            return
-
 class wordle_game:
     def __init__(self, pattern_matrix, guesses, answers, nprune_global, nprune_answers, batch_size=16):
         self.pattern_matrix = pattern_matrix
@@ -511,14 +364,27 @@ class wordle_game:
         self.failed = False
         self.guesses_played = []
         self.patterns_seen = []
+        self.current_answer_set = self.answer_set[self.ans_idxs]
 
-    def make_guess(self, word: str, pattern: str|list[int]|int) -> None:
-        guess_played = word.lower()
-        guess_played_idx = np.where(self.guess_set == guess_played)[0]
-        if len(guess_played_idx) != 1:
-            raise InvalidWordError(word)
+    def _sort_key(self, item):
+        word = item[0]
+        entropy = item[1]
+        entropy_key = entropy
+        answer_key = word not in set(self.current_answer_set)
+        frequency_key = -wordfreq.word_frequency(word, 'en')
+
+        return (entropy_key, answer_key, frequency_key)
         
-        pattern_matrix_row = pattern_matrix[guess_played_idx, self.ans_idxs]
+    def validate_guess(self, guess: str) -> tuple[str, int]:
+        """Checks if a word is valid. Raises InvalidWordError if not."""
+        guess_lower = guess.lower()
+        guess_idx = np.where(self.guess_set == guess_lower)[0]
+        if len(guess_idx) != 1:
+            raise InvalidWordError(guess)
+        return (guess_lower, guess_idx)
+    
+    def validate_pattern(self, pattern: str|list[int]|int) -> int:
+        """Checks if a pattern is valid. Raises InvalidPatternError if not."""
         if isinstance(pattern, str):
             pattern_str = pattern.upper()
             if len(pattern_str) != 5:
@@ -534,71 +400,27 @@ class wordle_game:
             pattern_int = pattern_to_int(pattern)
         else:
             raise NotImplementedError(f'Cannot handle patterns of type {type(pattern)}')
-        
+        return pattern_int
+
+    def make_guess(self, guess: str, pattern: str|list[int]|int) -> None:
+        guess_played, guess_played_idx = self.validate_guess(guess)
+        pattern_int = self.validate_pattern(pattern)
+
+        pattern_matrix_row = pattern_matrix[guess_played_idx, self.ans_idxs]
         next_ans_idxs = self.ans_idxs[pattern_matrix_row == pattern_int]        
         self.guesses_played.append(guess_played)
         self.patterns_seen.append(pattern_int)
         self._old_ans_idxs.append(self.ans_idxs)
         self.ans_idxs = next_ans_idxs
+        self.current_answer_set = self.answer_set[self.ans_idxs]
         self.update_game_state()
-        return (True, True)
 
-    def compute_next_guess(self) -> dict:
+    def pop_last_guess(self):
+        self.guesses_played.pop(-1)
+        self.patterns_seen.pop(-1)
+        self.ans_idxs = self._old_ans_idxs.pop(-1)
         self.update_game_state()
-        if self.solved:
-            solution = self.answer_set[self.ans_idxs[0]]
-            return {'recommendation': solution, 
-                    'sorted_results': [(solution, 0.0)], 
-                    'solve_time': 0.0, 
-                    'event_counter': np.zeros(8, dtype=np.int32)}
-        if self.failed:
-            return {'recommendation': None, 
-                    'sorted_results': [], 
-                    'solve_time': 0.0, 
-                    'event_counter': np.zeros(8, dtype=np.int32)}
-        
-        start_time = time.time()
-        for depth in range(3, 0, -1):
-            recursive_results = recursive_root(self.pattern_matrix, 
-                                               self.guess_set, 
-                                               self.ans_idxs, 
-                                               self.ans_to_gss_map, 
-                                               depth, 
-                                               self.nprune_global, 
-                                               self.nprune_answers,
-                                               self.global_cache, 
-                                               self.local_caches)
-            words, rem_entropies, event_counter = recursive_results
-            if rem_entropies[0] > 0:
-                break
-        end_time = time.time()
 
-        results = list(zip(words, rem_entropies))
-        current_answer_set = set(self.answer_set[self.ans_idxs])
-
-        def sort_key(item):
-            word = item[0]
-            entropy = item[1]
-            entropy_key = entropy
-            answer_key = word not in current_answer_set
-            frequency_key = -wordfreq.word_frequency(word, 'en')
-
-            return (entropy_key, answer_key, frequency_key)
-            
-        sorted_results = sorted(results, key=sort_key)
-
-        recommendation = sorted_results[0][0]
-        if depth < 2:
-            for word, entropy in sorted_results:
-                if word in current_answer_set and entropy <= 0.5:
-                    recommendation = word
-                    break
-
-        return {'recommendation': recommendation, 
-                'sorted_results': sorted_results,
-                'solve_time': end_time - start_time,
-                'event_counts': event_counter}
-    
     def update_game_state(self):
         """Want to check if no possible answer remain or the answer has been played"""
         if len(self.ans_idxs) < 1:
@@ -618,21 +440,141 @@ class wordle_game:
                 'patterns_seen': self.patterns_seen,
                 'solved': self.solved,
                 'failed': self.failed}
-
-    def pop_last_guess(self):
-        self.guesses_played.pop(-1)
-        self.patterns_seen.pop(-1)
-        self.ans_idxs = self._old_ans_idxs.pop(-1)
+    
+    def compute_next_guess(self, verbose=False) -> dict:
         self.update_game_state()
+        if self.solved or len(self.ans_idxs) == 1:
+            solution = self.answer_set[self.ans_idxs[0]]
+            return {'recommendation': solution, 
+                    'sorted_results': [(solution, 0.0)], 
+                    'solve_time': 0.0, 
+                    'event_counts': np.zeros(8, dtype=np.int32),
+                    'depth': 0}
+        if self.failed:
+            return {'recommendation': None, 
+                    'sorted_results': [], 
+                    'solve_time': 0.0, 
+                    'event_counts': np.zeros(8, dtype=np.int32),
+                    'depth': 0}
+        
+        start_time = time.time()
+        for depth in range(3, 0, -1):
+            if verbose:
+                print(f"Searching depth {depth}")
+            recursive_results = recursive_root(self.pattern_matrix, 
+                                               self.guess_set, 
+                                               self.ans_idxs, 
+                                               self.ans_to_gss_map, 
+                                               depth, 
+                                               self.nprune_global, 
+                                               self.nprune_answers,
+                                               self.global_cache, 
+                                               self.local_caches)
+            words, rem_entropies, event_counter = recursive_results
+            if rem_entropies[0] > 0:
+                break
+        end_time = time.time()
+
+        results = list(zip(words, rem_entropies))
+            
+        sorted_results = sorted(results, key=self._sort_key)
+
+        recommendation = sorted_results[0][0]
+        if depth < 2:
+            for word, entropy in sorted_results:
+                if word in set(self.current_answer_set) and entropy <= 2/3:
+                    recommendation = word
+                    break
+
+        return {'recommendation': recommendation, 
+                'sorted_results': sorted_results,
+                'solve_time': end_time - start_time,
+                'event_counts': event_counter,
+                'depth': depth}
+
 
 def play_wordle(pattern_matrix, guesses, answers, nprune_global, nprune_answers, starting_guess: str=None, batch_size=16, show_stats=False):
     game_obj = wordle_game(pattern_matrix, guesses, answers, nprune_global, nprune_answers, batch_size)
+    answers_remaining = len(answers)
 
     # gameplay loop
     for round_number in range(6):
         print(f"\n%%%%%%%%%% ROUND {round_number + 1} %%%%%%%%%%")
+        print(f"Answers still remaining: {answers_remaining}\n")
+
+        # Get next-guess recommendations
+        if round_number != 0 or starting_guess is None:
+            results = game_obj.compute_next_guess(verbose=True)
+            recommendation = results['recommendation']
+            sorted_results = results['sorted_results']
+            solve_time = results['solve_time']
+            event_counts = results['event_counts']
+            depth = results['depth']
+
+            print(f"\nSearch completed in {solve_time:.5f} seconds.")
+            if show_stats:
+                print(f"\nStats:")
+                print(f"{'Entropy loop skips':.<40}{event_counts[0]}")
+                print(f"{'Entropy loop returns':.<40}{event_counts[1]}")
+                print(f"{'Low pattern count recursion skips':.<40}{event_counts[2]}")
+                print(f"{'Recursions':.<40}{event_counts[3]}")
+                print(f"{'Leaf node calculations':.<40}{event_counts[4]}")
+                print(f"{"Global cache hits":.<40}{event_counts[5]}")
+                print(f"{'Local cache hits':.<40}{event_counts[6]}")
+                print(f"{'Batches':.<40}{event_counts[7]}")
         
-    pass
+            print(f"\nThe best {len(sorted_results)} words after depth {depth} search are:")
+            for i, (word, entropy) in enumerate(sorted_results):
+                annotation = ""
+                if word in set(game_obj.current_answer_set):
+                    annotation = "[Possible Answer]"
+                    
+                print(f"{i+1:>3}. {word.upper():<6} | Entropy: {entropy:.4f} {annotation}")
+            
+            print(f"\nCOMPUTER RECOMMENDATION: {recommendation.upper()}")
+            
+        # Report guess
+        if round_number != 0 or starting_guess is None:
+            while(True):
+                guess_played = input("\nGuess played: ").lower()
+                try:
+                    game_obj.validate_guess(guess_played)
+                except InvalidWordError as e:
+                    print(f"Error: {e}")
+                    continue
+                break
+        else:
+            print(f"Guess played: {starting_guess.upper()}")
+            guess_played = starting_guess.lower()
+
+        # Report pattern
+        while(True):
+            pattern_seen = input("Pattern seen: ").upper()
+            try:
+                game_obj.validate_pattern(pattern_seen)
+            except InvalidPatternError as e:
+                print(f"Error: {e}")
+                continue
+            break
+
+        # Make guess
+        game_obj.make_guess(guess_played, pattern_seen)
+
+        # Check win conditions:
+        game_state = game_obj.get_game_state()
+
+        if game_state['solved']:
+            print(f"\nSolution found in {game_state['nguesses']} guesses. Word was {game_state['guesses_played'][-1].upper()}.")
+            return
+        if game_state['failed']:
+            print(f"\nAll answers eliminated. No solution found.")
+            # Could pop last guess here too and go again.
+            return
+        
+        answers_remaining = game_state['answers_remaining']
+
+    print('Ran out of guesses!')
+    return
 
 if __name__ == "__main__":
 
