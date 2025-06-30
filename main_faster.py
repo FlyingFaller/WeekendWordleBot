@@ -9,6 +9,8 @@ from numba import njit, prange, float64, int64
 from numba.core import types
 from numba.typed import Dict
 import wordfreq
+import matplotlib.pyplot as plt
+import os
 
 VALID_WORDS_URL = "https://gist.github.com/dracos/dd0668f281e685bad51479e5acaadb93/raw/6bfa15d263d6d5b63840a8e5b64e04b382fdb079/valid-wordle-words.txt"
 ORIGINAL_ANSWER_URL = "https://gist.github.com/cfreshman/a03ef2cba789d8cf00c08f767e0fad7b/raw/c46f451920d5cf6326d550fb2d6abb1642717852/wordle-answers-alphabetical.txt"
@@ -458,7 +460,7 @@ class wordle_game:
                     'depth': 0}
         
         start_time = time.time()
-        for depth in range(3, 0, -1):
+        for depth in range(2, 0, -1):
             if verbose:
                 print(f"Searching depth {depth}")
             recursive_results = recursive_root(self.pattern_matrix, 
@@ -588,24 +590,40 @@ def generate_algorithm_stats(pattern_matrix,
                              batch_size=16, 
                              plot=False) -> dict:
     
-    game_log = []
+    if ngames is None or ngames == -1:
+        ngames = len(test_answers)
+    else:
+        ngames = min(len(test_answers), ngames)
+
+    game_logs = []
     game_stats = np.zeros(ngames, dtype=np.int8)
+
+    if plot:
+        plt.ion() # Turn on interactive mode
+        fig, ax = plt.subplots(figsize=(10, 6))
+        # Define histogram bins to keep the x-axis stable.
+        bins = np.arange(-1.5, max_guesses + 2.5, 1)
 
     # Play all the games
     for game_idx in tqdm(range(ngames), desc="Running simulation"):
         real_answer_idx = random.randint(0, len(test_answers)-1)
         real_answer = test_answers[real_answer_idx]
+        test_answers = np.delete(test_answers, real_answer_idx)
         game_obj = wordle_game(pattern_matrix, guesses, solver_answers, nprune_global, nprune_answers, batch_size)
+
+        solve_times = []
+        event_counts = []
+        depths = []
+        nsolves = 0
 
         for round_number in range(max_guesses):
             if round_number != 0 or starting_guess is None:
-                # Get computer recommendation
-                results = game_obj.compute_next_guess(verbose=True)
+                results = game_obj.compute_next_guess(verbose=False)
                 recommendation = results['recommendation']
-                # sorted_results = results['sorted_results']
-                # solve_time = results['solve_time']
-                # event_counts = results['event_counts']
-                # depth = results['depth']
+                solve_times.append(results['solve_time'])
+                event_counts.append(results['event_counts'])
+                depths.append(results['depth'])
+                nsolves += 1
                 
             # Make guess
             if round_number != 0 or starting_guess is None:
@@ -632,10 +650,52 @@ def generate_algorithm_stats(pattern_matrix,
         if not game_state['solved'] and not game_state['failed']:
             game_stats[game_idx] = -1
 
-        game_log.append(game_state)
+        game_log = {**game_state, 'solve_times': solve_times, 'event_counts': event_counts, 'depths': depths, 'nsolves': nsolves}
+        game_logs.append(game_log)
 
+        if plot:
+            ax.clear() # Clear previous histogram
+            
+            # We only plot non-zero stats (games that have finished)
+            valid_stats = game_stats[game_stats != 0]
+            
+            if len(valid_stats) > 0:
+                #  ax.hist(valid_stats, bins=bins, rwidth=0.8, color='dodgerblue', edgecolor='black')
+                 ax.hist(valid_stats, bins=bins, rwidth=0.8)
 
-    
+            # --- MODIFIED: Calculate and plot average line ---
+            successful_stats = valid_stats[valid_stats > 0]
+            if len(successful_stats) > 0:
+                avg_guesses = np.mean(successful_stats)
+                ax.axvline(avg_guesses, color='red', linestyle='--', linewidth=1, label=f'Average: {avg_guesses:.2f}')
+                ax.legend() # Display the legend for the vline
+
+            # Consistently set labels and title
+            ax.set_title(f'Distribution of Guesses After {game_idx + 1}/{ngames} Games')
+            ax.set_xlabel('Number of Guesses to Solve')
+            ax.set_ylabel('Frequency')
+            
+            # --- MODIFIED: Set custom x-axis ticks and labels ---
+            # Define ticks to show: -1 (for DNF), and 1 up to max_guesses
+            ticks_to_show = np.arange(1, max_guesses + 1)
+            all_ticks = np.insert(ticks_to_show, 0, -1)
+            ax.set_xticks(all_ticks)
+            
+            # Create labels, replacing -1 with 'DNF'
+            tick_labels = [str(t) for t in all_ticks]
+            tick_labels[0] = 'DNF'
+            ax.set_xticklabels(tick_labels)
+            
+            ax.grid(axis='y', alpha=0.75)
+            
+            plt.pause(0.01) # Pause to update the plot
+
+    if plot:
+        plt.ioff() # Turn off interactive mode
+        # plt.suptitle("Final Distribution", fontsize=16, y=0.95)
+        plt.show() # Keep the final plot window open
+
+    return {"game_logs": game_logs, "game_stats": game_stats}
 
 if __name__ == "__main__":
 
@@ -645,6 +705,17 @@ if __name__ == "__main__":
     # print(f"{word.upper()} has a minimum frequency of {freq}")
     answers = filter_words_by_occurance(guesses, min_freq=freq)
     print(f"Considering {len(answers)} answers with frequencies > {freq}")
-    pattern_matrix = get_pattern_matrix(guesses, answers, savefile='filtered_pattern_matrix.npy', recompute=True, save=False)
+    pattern_matrix = get_pattern_matrix(guesses, answers, savefile='9151_pattern_matrix.npy', recompute=False, save=True)
 
-    play_wordle(pattern_matrix, guesses, answers, nprune_global=25, nprune_answers=25, starting_guess="SALET", show_stats=True)
+    # play_wordle(pattern_matrix, guesses, answers, nprune_global=25, nprune_answers=25, starting_guess="SALET", show_stats=True)
+
+    generate_algorithm_stats(pattern_matrix, 
+                             guesses, 
+                             answers, 
+                             original_answers, 
+                             nprune_global=25, 
+                             nprune_answers=25, 
+                             ngames=1000, 
+                             max_guesses=6, 
+                             starting_guess='SALET', 
+                             plot=True)
