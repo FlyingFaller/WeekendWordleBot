@@ -576,6 +576,67 @@ def play_wordle(pattern_matrix, guesses, answers, nprune_global, nprune_answers,
     print('Ran out of guesses!')
     return
 
+def generate_algorithm_stats(pattern_matrix, 
+                             guesses, 
+                             solver_answers, 
+                             test_answers, 
+                             nprune_global, 
+                             nprune_answers,
+                             ngames,
+                             max_guesses,
+                             starting_guess=None, 
+                             batch_size=16, 
+                             plot=False) -> dict:
+    
+    game_log = []
+    game_stats = np.zeros(ngames, dtype=np.int8)
+
+    # Play all the games
+    for game_idx in tqdm(range(ngames), desc="Running simulation"):
+        real_answer_idx = random.randint(0, len(test_answers)-1)
+        real_answer = test_answers[real_answer_idx]
+        game_obj = wordle_game(pattern_matrix, guesses, solver_answers, nprune_global, nprune_answers, batch_size)
+
+        for round_number in range(max_guesses):
+            if round_number != 0 or starting_guess is None:
+                # Get computer recommendation
+                results = game_obj.compute_next_guess(verbose=True)
+                recommendation = results['recommendation']
+                # sorted_results = results['sorted_results']
+                # solve_time = results['solve_time']
+                # event_counts = results['event_counts']
+                # depth = results['depth']
+                
+            # Make guess
+            if round_number != 0 or starting_guess is None:
+                guess_played = recommendation.lower()
+            else:
+                guess_played = starting_guess.lower()
+
+            # Get pattern
+            pattern_seen = get_pattern(guess_played, real_answer)
+
+            # Make guess
+            game_obj.make_guess(guess_played, pattern_seen)
+
+            # Check win conditions:
+            game_state = game_obj.get_game_state()
+
+            if game_state['solved']:
+                game_stats[game_idx] = game_state['nguesses']
+                break
+            if game_state['failed']:
+                game_stats[game_idx] = -1
+                break
+
+        if not game_state['solved'] and not game_state['failed']:
+            game_stats[game_idx] = -1
+
+        game_log.append(game_state)
+
+
+    
+
 if __name__ == "__main__":
 
     guesses = get_words(refetch=False)
