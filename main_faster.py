@@ -460,7 +460,9 @@ class wordle_game:
                     'depth': 0}
         
         start_time = time.time()
-        for depth in range(2, 0, -1):
+        t = max(3 - len(self.guesses_played), 1)
+        # for depth in range(t, 0, -1):
+        for depth in range(1, 5):
             if verbose:
                 print(f"Searching depth {depth}")
             recursive_results = recursive_root(self.pattern_matrix, 
@@ -473,7 +475,7 @@ class wordle_game:
                                                self.global_cache, 
                                                self.local_caches)
             words, rem_entropies, event_counter = recursive_results
-            if rem_entropies[0] > 0:
+            if rem_entropies[0] < 2/3:
                 break
         end_time = time.time()
 
@@ -600,7 +602,7 @@ def generate_algorithm_stats(pattern_matrix,
 
     if plot:
         plt.ion() # Turn on interactive mode
-        fig, ax = plt.subplots(figsize=(10, 6))
+        fig, axs = plt.subplots(nrows=2, ncols=1, figsize=(10, 10))
         # Define histogram bins to keep the x-axis stable.
         bins = np.arange(-1.5, max_guesses + 2.5, 1)
 
@@ -653,41 +655,53 @@ def generate_algorithm_stats(pattern_matrix,
         game_log = {**game_state, 'solve_times': solve_times, 'event_counts': event_counts, 'depths': depths, 'nsolves': nsolves}
         game_logs.append(game_log)
 
-        if plot:
-            ax.clear() # Clear previous histogram
+        if plot and (game_idx+1)%4 == 0:
+            axs[0].clear() # Clear previous histogram
+            axs[1].clear()
             
             # We only plot non-zero stats (games that have finished)
             valid_stats = game_stats[game_stats != 0]
             
             if len(valid_stats) > 0:
                 #  ax.hist(valid_stats, bins=bins, rwidth=0.8, color='dodgerblue', edgecolor='black')
-                 ax.hist(valid_stats, bins=bins, rwidth=0.8)
+                 axs[0].hist(valid_stats, bins=bins, rwidth=0.8)
 
             # --- MODIFIED: Calculate and plot average line ---
             successful_stats = valid_stats[valid_stats > 0]
+
             if len(successful_stats) > 0:
+                cum_stats = np.cumsum(successful_stats)
+                games_played = np.arange(1, len(successful_stats)+1)
+                cum_avg = cum_stats/games_played
+
                 avg_guesses = np.mean(successful_stats)
-                ax.axvline(avg_guesses, color='red', linestyle='--', linewidth=1, label=f'Average: {avg_guesses:.2f}')
-                ax.legend() # Display the legend for the vline
+                axs[0].axvline(avg_guesses, color='red', linestyle='--', linewidth=1, label=f'Average: {avg_guesses:.2f}')
+                axs[0].legend() # Display the legend for the vline
+                
+                axs[1].plot(games_played, cum_avg)
 
             # Consistently set labels and title
-            ax.set_title(f'Distribution of Guesses After {game_idx + 1}/{ngames} Games')
-            ax.set_xlabel('Number of Guesses to Solve')
-            ax.set_ylabel('Frequency')
+            axs[0].set_title(f'Distribution of Guesses After {game_idx + 1}/{ngames} Games')
+            axs[0].set_xlabel('Number of Guesses to Solve')
+            axs[0].set_ylabel('Frequency')
             
+            axs[1].set_xlabel('Games Played')
+            axs[1].set_ylabel('Average Number of Guesses')
+
             # --- MODIFIED: Set custom x-axis ticks and labels ---
             # Define ticks to show: -1 (for DNF), and 1 up to max_guesses
             ticks_to_show = np.arange(1, max_guesses + 1)
             all_ticks = np.insert(ticks_to_show, 0, -1)
-            ax.set_xticks(all_ticks)
+            axs[0].set_xticks(all_ticks)
             
             # Create labels, replacing -1 with 'DNF'
             tick_labels = [str(t) for t in all_ticks]
             tick_labels[0] = 'DNF'
-            ax.set_xticklabels(tick_labels)
+            axs[0].set_xticklabels(tick_labels)
             
-            ax.grid(axis='y', alpha=0.75)
-            
+            axs[0].grid(axis='y', alpha=0.75)
+            axs[1].grid(alpha=0.75)
+
             plt.pause(0.01) # Pause to update the plot
 
     if plot:
@@ -709,13 +723,27 @@ if __name__ == "__main__":
 
     # play_wordle(pattern_matrix, guesses, answers, nprune_global=25, nprune_answers=25, starting_guess="SALET", show_stats=True)
 
-    generate_algorithm_stats(pattern_matrix, 
-                             guesses, 
-                             answers, 
-                             original_answers, 
-                             nprune_global=25, 
-                             nprune_answers=25, 
-                             ngames=1000, 
-                             max_guesses=6, 
-                             starting_guess='SALET', 
-                             plot=True)
+    # generate_algorithm_stats(pattern_matrix, 
+    #                          guesses, 
+    #                          answers, 
+    #                          original_answers, 
+    #                          nprune_global=25, 
+    #                          nprune_answers=25, 
+    #                          ngames=100, 
+    #                          max_guesses=6, 
+    #                          starting_guess='SALET', 
+    #                          plot=True)
+
+    game_obj = wordle_game(pattern_matrix, guesses, answers, 3, 2)
+    results = recursive_root(game_obj.pattern_matrix, 
+                             game_obj.guess_set,
+                             game_obj.ans_idxs,
+                             game_obj.ans_to_gss_map,
+                             3,
+                             game_obj.nprune_global,
+                             game_obj.nprune_answers,
+                             game_obj.global_cache,
+                             game_obj.local_caches)
+    words, entropies, _ = results
+    for (word, entropy) in zip(words, entropies):
+        print(f"{word.upper()}: {entropy:.5f}")
