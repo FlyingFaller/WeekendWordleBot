@@ -11,6 +11,8 @@ from numba.typed import Dict
 import wordfreq
 import matplotlib.pyplot as plt
 import os
+import plotly.graph_objects as go
+import plotly.io as pio
 
 VALID_WORDS_URL = "https://gist.github.com/dracos/dd0668f281e685bad51479e5acaadb93/raw/6bfa15d263d6d5b63840a8e5b64e04b382fdb079/valid-wordle-words.txt"
 ORIGINAL_ANSWER_URL = "https://gist.github.com/cfreshman/a03ef2cba789d8cf00c08f767e0fad7b/raw/c46f451920d5cf6326d550fb2d6abb1642717852/wordle-answers-alphabetical.txt"
@@ -414,7 +416,6 @@ class wordle_game:
         self.patterns_seen.append(pattern_int)
         self._old_ans_idxs.append(self.ans_idxs)
         self.ans_idxs = next_ans_idxs
-        self.current_answer_set = self.answer_set[self.ans_idxs]
         self.update_game_state()
 
     def pop_last_guess(self):
@@ -425,6 +426,7 @@ class wordle_game:
 
     def update_game_state(self):
         """Want to check if no possible answer remain or the answer has been played"""
+        self.current_answer_set = self.answer_set[self.ans_idxs]
         if len(self.ans_idxs) < 1:
             self.failed = True
             self.solved = False
@@ -443,7 +445,34 @@ class wordle_game:
                 'solved': self.solved,
                 'failed': self.failed}
     
-    def compute_next_guess(self, verbose=False) -> dict:
+    def get_discord_printout(self, game_number: int)->str:
+        ret_str = f":robot: **WeekendWordleBot #{game_number}** :robot:\n"
+        for i, (guess, pattern) in enumerate(zip(self.guesses_played, self.patterns_seen)):
+            guess_idx = np.where(self.guess_set == guess.lower())[0]
+            pattern_matrix_row = self.pattern_matrix[guess_idx, self._old_ans_idxs[i]]
+            words_remaining = len(pattern_matrix_row)
+            _, counts = np.unique_counts(pattern_matrix_row)
+            pxs = counts/words_remaining
+            expected_entropy = -np.sum(pxs*np.log2(pxs))
+            pattern_out = ""
+            for value in int_to_pattern(pattern):
+                if value == GRAY:
+                    pattern_out += ":black_large_square: "
+                elif value == YELLOW:
+                    pattern_out += ":yellow_square: "
+                elif value == GREEN:
+                    pattern_out += ":green_square: "
+            expected_words_remaining = int(words_remaining//(2**expected_entropy))
+            ret_str += f"{i+1}. ||**{guess.upper()}**||: {words_remaining: >4} ⟶ {expected_words_remaining: >4} Answers ({expected_entropy:.2f} bits)\n"
+            ret_str += pattern_out + "\n"
+        
+        return ret_str
+
+    def compute_next_guess(self, 
+                           recommendation_cuttoff=0.75, 
+                           entropy_break = 0, 
+                           max_depth=3,
+                           verbose=False) -> dict:
         self.update_game_state()
         if self.solved or len(self.ans_idxs) == 1:
             solution = self.answer_set[self.ans_idxs[0]]
@@ -460,9 +489,8 @@ class wordle_game:
                     'depth': 0}
         
         start_time = time.time()
-        t = max(3 - len(self.guesses_played), 1)
-        # for depth in range(t, 0, -1):
-        for depth in range(1, 5):
+        t = max(max_depth - len(self.guesses_played), 1)
+        for depth in range(t, 0, -1):
             if verbose:
                 print(f"Searching depth {depth}")
             recursive_results = recursive_root(self.pattern_matrix, 
@@ -475,7 +503,7 @@ class wordle_game:
                                                self.global_cache, 
                                                self.local_caches)
             words, rem_entropies, event_counter = recursive_results
-            if rem_entropies[0] < 2/3:
+            if rem_entropies[0] > entropy_break:
                 break
         end_time = time.time()
 
@@ -486,7 +514,7 @@ class wordle_game:
         recommendation = sorted_results[0][0]
         if depth < 2:
             for word, entropy in sorted_results:
-                if word in set(self.current_answer_set) and entropy <= 2/3:
+                if word in set(self.current_answer_set) and entropy <= recommendation_cuttoff:
                     recommendation = word
                     break
 
@@ -497,9 +525,21 @@ class wordle_game:
                 'depth': depth}
 
 
-def play_wordle(pattern_matrix, guesses, answers, nprune_global, nprune_answers, starting_guess: str=None, batch_size=16, show_stats=False):
+def play_wordle(pattern_matrix, 
+                guesses, 
+                answers, 
+                nprune_global = 15, 
+                nprune_answers = 15, 
+                starting_guess: str= "SALET", 
+                batch_size=16, 
+                show_stats=True,
+                discord_printout=True):
+    
     game_obj = wordle_game(pattern_matrix, guesses, answers, nprune_global, nprune_answers, batch_size)
     answers_remaining = len(answers)
+
+    if discord_printout:
+        game_number = input("Game number: ")
 
     # gameplay loop
     for round_number in range(6):
@@ -569,15 +609,20 @@ def play_wordle(pattern_matrix, guesses, answers, nprune_global, nprune_answers,
 
         if game_state['solved']:
             print(f"\nSolution found in {game_state['nguesses']} guesses. Word was {game_state['guesses_played'][-1].upper()}.")
+            if discord_printout:
+                print("\nDiscord Copy-Paste\n"+game_obj.get_discord_printout(game_number))
             return
         if game_state['failed']:
             print(f"\nAll answers eliminated. No solution found.")
-            # Could pop last guess here too and go again.
+            if discord_printout:
+                print("\nDiscord Copy-Paste\n"+game_obj.get_discord_printout(game_number))
             return
         
         answers_remaining = game_state['answers_remaining']
 
     print('Ran out of guesses!')
+    if discord_printout:
+        print("\nDiscord Copy-Paste\n"+game_obj.get_discord_printout(game_number))
     return
 
 def generate_algorithm_stats(pattern_matrix, 
@@ -588,10 +633,29 @@ def generate_algorithm_stats(pattern_matrix,
                              nprune_answers,
                              ngames,
                              max_guesses,
+                             recommendation_cutoff=0.70, 
+                             entropy_break = 0, 
+                             max_depth=3,
+                             seed = None,
                              starting_guess=None, 
                              batch_size=16, 
-                             plot=False) -> dict:
-    
+                             plot=False,
+                             real_time=False) -> dict:
+    start_time = time.time()
+
+    def init_plot():
+        plt.ion() # Turn on interactive mode
+        fig, axs = plt.subplots(nrows=2, ncols=1, figsize=(10, 10))
+        # Define histogram bins to keep the x-axis stable.
+        bins = np.arange(-1.5, max_guesses + 2.5, 1)
+        return fig, axs, bins
+
+    if plot and real_time:
+        fig, axs, bins = init_plot()
+
+    if seed is not None:
+        random.seed(seed)
+
     if ngames is None or ngames == -1:
         ngames = len(test_answers)
     else:
@@ -599,12 +663,6 @@ def generate_algorithm_stats(pattern_matrix,
 
     game_logs = []
     game_stats = np.zeros(ngames, dtype=np.int8)
-
-    if plot:
-        plt.ion() # Turn on interactive mode
-        fig, axs = plt.subplots(nrows=2, ncols=1, figsize=(10, 10))
-        # Define histogram bins to keep the x-axis stable.
-        bins = np.arange(-1.5, max_guesses + 2.5, 1)
 
     # Play all the games
     for game_idx in tqdm(range(ngames), desc="Running simulation"):
@@ -620,7 +678,7 @@ def generate_algorithm_stats(pattern_matrix,
 
         for round_number in range(max_guesses):
             if round_number != 0 or starting_guess is None:
-                results = game_obj.compute_next_guess(verbose=False)
+                results = game_obj.compute_next_guess(recommendation_cutoff, entropy_break, max_depth, verbose=False)
                 recommendation = results['recommendation']
                 solve_times.append(results['solve_time'])
                 event_counts.append(results['event_counts'])
@@ -654,8 +712,13 @@ def generate_algorithm_stats(pattern_matrix,
 
         game_log = {**game_state, 'solve_times': solve_times, 'event_counts': event_counts, 'depths': depths, 'nsolves': nsolves}
         game_logs.append(game_log)
+        
+        end_time = time.time()
 
-        if plot and (game_idx+1)%4 == 0:
+        if plot and (real_time or game_idx==ngames-1):
+            if not real_time:
+                fig, axs, bins = init_plot()
+
             axs[0].clear() # Clear previous histogram
             axs[1].clear()
             
@@ -675,7 +738,7 @@ def generate_algorithm_stats(pattern_matrix,
                 cum_avg = cum_stats/games_played
 
                 avg_guesses = np.mean(successful_stats)
-                axs[0].axvline(avg_guesses, color='red', linestyle='--', linewidth=1, label=f'Average: {avg_guesses:.2f}')
+                axs[0].axvline(avg_guesses, color='red', linestyle='--', linewidth=1, label=f'Average: {avg_guesses:.5f}')
                 axs[0].legend() # Display the legend for the vline
                 
                 axs[1].plot(games_played, cum_avg)
@@ -706,13 +769,19 @@ def generate_algorithm_stats(pattern_matrix,
 
     if plot:
         plt.ioff() # Turn off interactive mode
-        # plt.suptitle("Final Distribution", fontsize=16, y=0.95)
         plt.show() # Keep the final plot window open
+
+    print(f"Results after {ngames} solves ({end_time - start_time:.3f} sec):")
+    print(f"Recommendation entropy cutoff of: {recommendation_cutoff}, search break of {entropy_break}, and a max depth of: {max_depth}:")
+    print(f"Starting guess of: {starting_guess}")
+    print(f"Average score: {np.average(game_stats[game_stats > 0]):.5f}")
+    print(f"Number of failed solves: {len(game_stats[game_stats == -1])}")
+    print(f"Seed used: {seed}")
 
     return {"game_logs": game_logs, "game_stats": game_stats}
 
 if __name__ == "__main__":
-
+    ### LOAD STUFF ###
     guesses = get_words(refetch=False)
     original_answers = get_words(url=ORIGINAL_ANSWER_URL, refetch=True, save=False)
     freq, idx, word = get_minimum_freq(original_answers)
@@ -721,29 +790,60 @@ if __name__ == "__main__":
     print(f"Considering {len(answers)} answers with frequencies > {freq}")
     pattern_matrix = get_pattern_matrix(guesses, answers, savefile='9151_pattern_matrix.npy', recompute=False, save=True)
 
-    # play_wordle(pattern_matrix, guesses, answers, nprune_global=25, nprune_answers=25, starting_guess="SALET", show_stats=True)
+    ### PLAY THE REAL GAME ###
+    play_wordle(pattern_matrix, guesses, answers, nprune_global=15, nprune_answers=15, starting_guess="SALET", show_stats=True, discord_printout=True)
 
+    ### SIMULATE GAMES WITH DIFFERENT ALGORITHMS ###
     # generate_algorithm_stats(pattern_matrix, 
     #                          guesses, 
     #                          answers, 
     #                          original_answers, 
-    #                          nprune_global=25, 
-    #                          nprune_answers=25, 
-    #                          ngames=100, 
-    #                          max_guesses=6, 
+    #                          nprune_global=15, 
+    #                          nprune_answers=15, 
+    #                          ngames=750, 
+    #                          max_guesses=6,
+    #                          recommendation_cutoff=0.7, 
+    #                          entropy_break = 0, 
+    #                          max_depth=3,
+    #                          seed=5, 
     #                          starting_guess='SALET', 
-    #                          plot=True)
+    #                          plot=True,
+    #                          real_time=False)
 
-    game_obj = wordle_game(pattern_matrix, guesses, answers, 3, 2)
-    results = recursive_root(game_obj.pattern_matrix, 
-                             game_obj.guess_set,
-                             game_obj.ans_idxs,
-                             game_obj.ans_to_gss_map,
-                             3,
-                             game_obj.nprune_global,
-                             game_obj.nprune_answers,
-                             game_obj.global_cache,
-                             game_obj.local_caches)
-    words, entropies, _ = results
-    for (word, entropy) in zip(words, entropies):
-        print(f"{word.upper()}: {entropy:.5f}")
+    ### PLOT BEST GUESSES AT DIFFERENT DEPTHS ###
+    # game_obj = wordle_game(pattern_matrix, guesses, answers, 25, 1)
+    # result_dict = {}
+    # for depth in tqdm(range(1, 6), desc='Searching all depths'):
+    #     results = recursive_root(game_obj.pattern_matrix, 
+    #                             game_obj.guess_set,
+    #                             game_obj.ans_idxs,
+    #                             game_obj.ans_to_gss_map,
+    #                             depth,
+    #                             game_obj.nprune_global,
+    #                             game_obj.nprune_answers,
+    #                             game_obj.global_cache,
+    #                             game_obj.local_caches)
+    #     words, entropies, _ = results
+    #     for (word, entropy) in zip(words, entropies):
+    #         if depth == 1:
+    #             result_dict[word] = [entropy]
+    #         else:
+    #             result_dict[word].append(entropy)
+
+    # pio.renderers.default = 'browser'
+    # fig = go.Figure()
+
+    # for word, entropies in result_dict.items():
+    #     fig.add_trace(go.Scatter(x=np.arange(1, 6).tolist(), 
+    #                              y=entropies,
+    #                              mode='lines+markers',
+    #                              name=word.upper()))
+
+    # fig.update_layout(
+    #     title="Wordle Strategy Entropies",
+    #     xaxis_title="Search Depth",
+    #     yaxis_title="Entropy",
+    #     legend_title="Initial Guesses"
+    # )
+
+    # fig.show()
