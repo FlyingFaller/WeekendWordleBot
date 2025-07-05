@@ -16,8 +16,8 @@ import plotly.io as pio
 
 VALID_WORDS_URL = "https://gist.github.com/dracos/dd0668f281e685bad51479e5acaadb93/raw/6bfa15d263d6d5b63840a8e5b64e04b382fdb079/valid-wordle-words.txt"
 ORIGINAL_ANSWER_URL = "https://gist.github.com/cfreshman/a03ef2cba789d8cf00c08f767e0fad7b/raw/c46f451920d5cf6326d550fb2d6abb1642717852/wordle-answers-alphabetical.txt"
-VALID_WORDS_FILE = "valid_words.txt"
-PATTERN_MATRIX_FILE = "pattern_matrix.npy"
+VALID_WORDS_FILE = "data/valid_guesses.txt"
+PATTERN_MATRIX_FILE = "data/pattern_matrix.npy"
 GREEN = 2
 YELLOW = 1
 GRAY = 0
@@ -446,7 +446,7 @@ class wordle_game:
                 'failed': self.failed}
     
     def get_discord_printout(self, game_number: int)->str:
-        ret_str = f":robot: **WeekendWordleBot #{game_number}** :robot:\n"
+        ret_str = f"## :robot: WeekendWordleBot #{game_number} :robot:\n"
         for i, (guess, pattern) in enumerate(zip(self.guesses_played, self.patterns_seen)):
             guess_idx = np.where(self.guess_set == guess.lower())[0]
             pattern_matrix_row = self.pattern_matrix[guess_idx, self._old_ans_idxs[i]]
@@ -463,14 +463,14 @@ class wordle_game:
                 elif value == GREEN:
                     pattern_out += ":green_square: "
             expected_words_remaining = int(words_remaining//(2**expected_entropy))
-            ret_str += f"{i+1}. ||**{guess.upper()}**||: {words_remaining: >4} ⟶ {expected_words_remaining: >4} Answers ({expected_entropy:.2f} bits)\n"
+            ret_str += f"{i+1}. ||**`{guess.upper()}`**||: `{words_remaining: >4}` ⟶ `{expected_words_remaining: >4}` Answers ({abs(expected_entropy):.2f} bits)\n"
             ret_str += pattern_out + "\n"
         
         return ret_str
 
     def compute_next_guess(self, 
                            recommendation_cuttoff=0.75, 
-                           entropy_break = 0, 
+                           entropy_break = 0.0, 
                            max_depth=3,
                            verbose=False) -> dict:
         self.update_game_state()
@@ -490,7 +490,23 @@ class wordle_game:
         
         start_time = time.time()
         t = max(max_depth - len(self.guesses_played), 1)
-        for depth in range(t, 0, -1):
+        # for depth in range(t, 0, -1):
+        #     if verbose:
+        #         print(f"Searching depth {depth}")
+        #     recursive_results = recursive_root(self.pattern_matrix, 
+        #                                        self.guess_set, 
+        #                                        self.ans_idxs, 
+        #                                        self.ans_to_gss_map, 
+        #                                        depth, 
+        #                                        self.nprune_global, 
+        #                                        self.nprune_answers,
+        #                                        self.global_cache, 
+        #                                        self.local_caches)
+        #     words, rem_entropies, event_counter = recursive_results
+        #     if rem_entropies[0] > entropy_break:
+        #         break
+        results_history = []
+        for depth in range(1, t+1, 1):
             if verbose:
                 print(f"Searching depth {depth}")
             recursive_results = recursive_root(self.pattern_matrix, 
@@ -502,12 +518,24 @@ class wordle_game:
                                                self.nprune_answers,
                                                self.global_cache, 
                                                self.local_caches)
-            words, rem_entropies, event_counter = recursive_results
-            if rem_entropies[0] > entropy_break:
+            words, entropies, event_counter = recursive_results
+            if depth == 1:
+                if entropies[0] <= entropy_break:
+                    break
+                else:
+                    for word, entropy in zip(words, entropies):
+                        if word in set(self.current_answer_set) and entropy <= recommendation_cuttoff:
+                            break
+            elif depth > 1 and entropies[0] <= entropy_break:
+                depth -= 1
+                words, entropies, event_counter = results_history[-1]
                 break
+            results_history.append(recursive_results)
+
+
         end_time = time.time()
 
-        results = list(zip(words, rem_entropies))
+        results = list(zip(words, entropies))
             
         sorted_results = sorted(results, key=self._sort_key)
 
@@ -610,19 +638,19 @@ def play_wordle(pattern_matrix,
         if game_state['solved']:
             print(f"\nSolution found in {game_state['nguesses']} guesses. Word was {game_state['guesses_played'][-1].upper()}.")
             if discord_printout:
-                print("\nDiscord Copy-Paste\n"+game_obj.get_discord_printout(game_number))
+                print("\nDiscord Copy-Paste:\n\n"+game_obj.get_discord_printout(game_number))
             return
         if game_state['failed']:
             print(f"\nAll answers eliminated. No solution found.")
             if discord_printout:
-                print("\nDiscord Copy-Paste\n"+game_obj.get_discord_printout(game_number))
+                print("\nDiscord Copy-Paste:\n\n"+game_obj.get_discord_printout(game_number))
             return
         
         answers_remaining = game_state['answers_remaining']
 
     print('Ran out of guesses!')
     if discord_printout:
-        print("\nDiscord Copy-Paste\n"+game_obj.get_discord_printout(game_number))
+        print("\nDiscord Copy-Paste:\n\n"+game_obj.get_discord_printout(game_number))
     return
 
 def generate_algorithm_stats(pattern_matrix, 
