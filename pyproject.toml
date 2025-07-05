@@ -8,6 +8,7 @@ dependencies = [
     "ipykernel>=6.29.5",
     "matplotlib>=3.10.3",
     "nbformat>=5.10.4",
+    "nltk>=3.9.1",
     "numba>=0.61.2",
     "numpy==2.2.6",
     "plotly>=6.2.0",
