@@ -12,3 +12,14 @@ wheels/
 # Large files that can be recomputed
 *.npy
 *.txt
+
+# Allow dictionary files
+!2of12.txt
+!2of12inf.txt
+!3esl.txt
+!6of12.txt
+!en_US-large.txt
+
+# Allow base guesses and answers
+!valid_guesses.txt
+!original_answers.txt
