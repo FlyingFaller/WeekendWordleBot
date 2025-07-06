@@ -23,4 +23,23 @@ if __name__ == "__main__":
     pattern_matrix = get_pattern_matrix(guesses, answers, savefile="data/temp_pattern_matrix_again.npy")
 
     ### PLAY THE REAL GAME ###
-    play_wordle(pattern_matrix, guesses, answers, nprune_global=25, nprune_answers=25, starting_guess=None, show_stats=True, discord_printout=True)
+    # play_wordle(pattern_matrix, guesses, answers, nprune_global=25, nprune_answers=25, starting_guess="TARES", show_stats=True, discord_printout=True)
+
+    ### BENCHMARK ###
+    return_dict = benchmark_algorithm(pattern_matrix, guesses, answers, original_answers, 25, 25, 750, 6, 5, "TARES", plot=True)
+    failed_words = []
+    for i, score in enumerate(return_dict['game_stats']):
+        if score == -1:
+            failed_words.append(return_dict['game_answers'][i])
+    answer_set = set(answers)
+    for failed_word in failed_words:
+        if failed_word not in answer_set:
+            print(f"{failed_word.upper()} was an answer but was not in answer set.")
+        else:
+            print(f"{failed_word.upper()} failed despite being in the answer set.")
+
+    total_event_counts = np.zeros(9, dtype=np.int32)
+    for game_log in return_dict['game_logs']:
+        for event_count in game_log['event_counts']:
+            total_event_counts += event_count
+    print(f"Max depth exceeded: {total_event_counts[8]} times.")

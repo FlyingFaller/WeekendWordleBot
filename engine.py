@@ -7,6 +7,8 @@ def recursive_engine(pattern_matrix: np.ndarray,
                      nguesses: int,
                      ans_idxs: np.ndarray, 
                      nprune: int,
+                     max_depth: int,
+                     current_depth: int,
                      global_cache: dict,
                      local_cache: dict,
                      event_counter: np.ndarray) -> float:
@@ -74,10 +76,21 @@ def recursive_engine(pattern_matrix: np.ndarray,
                 # if count is 3 (we have to check this is garunteed) then 33% 1 additional and 66% 2 additional so return 1.66
 
                 score += 2*count - 1 # px * (1 + (count-1)/count) = count/nanswers*(1 + (count-1)/count) = (1/nanswers)*(2*count - 1)
-            else:
+            elif current_depth < max_depth:
                 event_counter[3] += 1
                 next_ans_idxs = ans_idxs[pattern_row == pattern] # Remove non-matching answers from solution set
-                score += count*recursive_engine(pattern_matrix, nguesses, next_ans_idxs, nprune, global_cache, local_cache, event_counter)
+                score += count*recursive_engine(pattern_matrix, 
+                                                nguesses, 
+                                                next_ans_idxs, 
+                                                nprune, 
+                                                max_depth, 
+                                                current_depth+1, 
+                                                global_cache, 
+                                                local_cache, 
+                                                event_counter)
+            else:
+                event_counter[8] += 1
+                score += 1000 # prohibitively large number
 
         candidate_scores[i] = score/nanswers + 1 # This guess plus the expected future number of guesses
     result = np.min(candidate_scores)
@@ -91,6 +104,7 @@ def recursive_root(pattern_matrix: np.ndarray[int],
                    ans_to_gss_map: np.ndarray[int], 
                    nprune_global: int, 
                    nprune_answers: int,
+                   max_depth: int,
                    global_cache: dict, 
                    local_caches: dict) -> tuple[np.ndarray[str], np.ndarray[float], np.ndarray[int]]:
     """This function should return the best words to play and a bunch of info"""
@@ -107,7 +121,7 @@ def recursive_root(pattern_matrix: np.ndarray[int],
     nguesses = len(guesses)
     nthreads = len(local_caches)
 
-    event_counter = np.zeros(8, dtype=np.int32)
+    event_counter = np.zeros(9, dtype=np.int32)
 
     ### COMPILE NEXT GUESSES ###
     pattern_data = []
@@ -170,7 +184,15 @@ def recursive_root(pattern_matrix: np.ndarray[int],
                 else:
                     event_counter[3] += 1
                     next_ans_idxs = ans_idxs[pattern_row == pattern] # Remove non-matching answers from solution set
-                    score += count*recursive_engine(pattern_matrix, nguesses, next_ans_idxs, nprune_global, global_cache, local_caches[i], event_counter)
+                    score += count*recursive_engine(pattern_matrix, 
+                                                    nguesses, 
+                                                    next_ans_idxs, 
+                                                    nprune_global, 
+                                                    max_depth, 
+                                                    1, 
+                                                    global_cache, 
+                                                    local_caches[i], 
+                                                    event_counter)
                     
             candidate_scores[idx] = score/nanswers + 1
 

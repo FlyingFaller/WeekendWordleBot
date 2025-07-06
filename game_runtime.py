@@ -43,6 +43,7 @@ def play_wordle(pattern_matrix,
                 print(f"{"Global cache hits":.<40}{event_counts[5]}")
                 print(f"{'Local cache hits':.<40}{event_counts[6]}")
                 print(f"{'Batches':.<40}{event_counts[7]}")
+                print(f"{'Max depth exceeded':.<40}{event_counts[8]}")
         
             print(f"\nThe best {len(sorted_results)} words:")
             for i, (word, score) in enumerate(sorted_results):
@@ -50,7 +51,7 @@ def play_wordle(pattern_matrix,
                 if word in set(game_obj.current_answer_set):
                     annotation = "[Possible Answer]"
                     
-                print(f"{i+1:>3}. {word.upper():<6} | Average Game Length: {score:.4f} {annotation}")
+                print(f"{i+1:>3}. {word.upper():<6} | Exected Guesses: {score:.4f} {annotation}")
             
             print(f"\nCOMPUTER RECOMMENDATION: {recommendation.upper()}")
             

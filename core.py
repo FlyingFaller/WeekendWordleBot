@@ -20,7 +20,7 @@ class InvalidPatternError(ValueError):
         super().__init__(f"Invalid pattern '{pattern}': {reason}")
 
 class wordle_game:
-    def __init__(self, pattern_matrix, guesses, answers, nprune_global, nprune_answers, batch_size=16):
+    def __init__(self, pattern_matrix, guesses, answers, nprune_global, nprune_answers, max_depth=6, batch_size=16):
         self.pattern_matrix = pattern_matrix
         self.guess_set = guesses
         self.answer_set = answers
@@ -37,6 +37,7 @@ class wordle_game:
         self.guesses_played = []
         self.patterns_seen = []
         self.current_answer_set = self.answer_set[self.ans_idxs]
+        self.max_depth = max_depth
 
     def _sort_key(self, item):
         word = item[0]
@@ -142,12 +143,12 @@ class wordle_game:
             return {'recommendation': solution, 
                     'sorted_results': [(solution, 1)], 
                     'solve_time': 0.0, 
-                    'event_counts': np.zeros(8, dtype=np.int32)}
+                    'event_counts': np.zeros(9, dtype=np.int32)}
         if self.failed:
             return {'recommendation': None, 
                     'sorted_results': [], 
                     'solve_time': 0.0, 
-                    'event_counts': np.zeros(8, dtype=np.int32)}
+                    'event_counts': np.zeros(9, dtype=np.int32)}
         
         start_time = time.time()
         recursive_results = recursive_root(self.pattern_matrix, 
@@ -156,6 +157,7 @@ class wordle_game:
                                             self.ans_to_gss_map, 
                                             self.nprune_global, 
                                             self.nprune_answers,
+                                            self.max_depth,
                                             self.global_cache, 
                                             self.local_caches)
         words, scores, event_counter = recursive_results
@@ -166,6 +168,15 @@ class wordle_game:
         sorted_results = sorted(results, key=self._sort_key)
 
         recommendation = sorted_results[0][0]
+        # min_score = sorted_results[0][1]
+        # if len(self.ans_idxs) < self.nprune_answers:
+        #     max_freq = 0
+        #     for word, score in sorted_results:
+        #         if word in set(self.current_answer_set) and score - min_score <= 0.5:
+        #             freq = wordfreq.word_frequency(word, 'en')
+        #             if freq > max_freq:
+        #                 recommendation = word
+        #                 max_freq = freq
 
         return {'recommendation': recommendation, 
                 'sorted_results': sorted_results,

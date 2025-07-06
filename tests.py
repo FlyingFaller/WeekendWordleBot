@@ -14,19 +14,19 @@ import multiprocessing
 from multiprocessing import shared_memory
 from concurrent.futures import ProcessPoolExecutor
 
-def generate_algorithm_stats(pattern_matrix, 
-                             guesses, 
-                             solver_answers, 
-                             test_answers, 
-                             nprune_global, 
-                             nprune_answers,
-                             ngames,
-                             max_guesses,
-                             seed = None,
-                             starting_guess=None, 
-                             batch_size=16, 
-                             plot=False,
-                             real_time=False) -> dict:
+def benchmark_algorithm(pattern_matrix, 
+                        guesses, 
+                        solver_answers, 
+                        test_answers, 
+                        nprune_global, 
+                        nprune_answers,
+                        ngames,
+                        max_guesses,
+                        seed = None,
+                        starting_guess=None, 
+                        batch_size=16, 
+                        plot=False,
+                        real_time=False) -> dict:
     start_time = time.time()
 
     def init_plot():
@@ -48,12 +48,14 @@ def generate_algorithm_stats(pattern_matrix,
         ngames = min(len(test_answers), ngames)
 
     game_logs = []
+    game_answers = []
     game_stats = np.zeros(ngames, dtype=np.int8)
 
     # Play all the games
     for game_idx in tqdm(range(ngames), desc="Running simulation"):
         real_answer_idx = random.randint(0, len(test_answers)-1)
         real_answer = test_answers[real_answer_idx]
+        game_answers.append(real_answer)
         test_answers = np.delete(test_answers, real_answer_idx)
         game_obj = wordle_game(pattern_matrix, guesses, solver_answers, nprune_global, nprune_answers, batch_size)
 
@@ -161,7 +163,7 @@ def generate_algorithm_stats(pattern_matrix,
     print(f"Number of failed solves: {len(game_stats[game_stats == -1])}")
     print(f"Seed used: {seed}")
 
-    return {"game_logs": game_logs, "game_stats": game_stats}
+    return {"game_logs": game_logs, "game_stats": game_stats, "game_answers": game_answers}
 
 def check_pattern_uniqueness(
     pattern_matrix: np.ndarray,
