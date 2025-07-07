@@ -2,7 +2,7 @@ import numpy as np
 from numba import njit, prange
 from helpers import *
 
-@njit(cache=True)
+@njit(cache=False)
 def recursive_engine(pattern_matrix: np.ndarray, 
                      nguesses: int,
                      ans_idxs: np.ndarray, 
@@ -46,7 +46,8 @@ def recursive_engine(pattern_matrix: np.ndarray,
         if all_pcounts[-1] > 1 and len(patterns) >= nanswers:
             event_counter[1] += 1
             score = 1 + (nanswers-1)/nanswers # this guess plus chance another guess will be needed
-            local_cache[key] = score
+            # local_cache[key] = score
+            global_cache[key] = score
             return score
 
         pcounts = all_pcounts[patterns]
@@ -94,10 +95,11 @@ def recursive_engine(pattern_matrix: np.ndarray,
 
         candidate_scores[i] = score/nanswers + 1 # This guess plus the expected future number of guesses
     result = np.min(candidate_scores)
-    local_cache[key] = result
+    # local_cache[key] = result
+    global_cache[key] = score
     return result
     
-@njit(cache=True, parallel=True)
+@njit(cache=False, parallel=True)
 def recursive_root(pattern_matrix: np.ndarray[int], 
                    guesses: np.ndarray[str], 
                    ans_idxs: np.ndarray[int], 
@@ -121,7 +123,7 @@ def recursive_root(pattern_matrix: np.ndarray[int],
     nguesses = len(guesses)
     nthreads = len(local_caches)
 
-    event_counter = np.zeros(9, dtype=np.int32)
+    global_event_counter = np.zeros(9, dtype=np.int64)
 
     ### COMPILE NEXT GUESSES ###
     pattern_data = []
@@ -134,7 +136,7 @@ def recursive_root(pattern_matrix: np.ndarray[int],
         patterns = np.nonzero(all_pcounts)[0] # this works beceause we've forced there to be 243 bins so idx == pattern int
 
         if len(patterns) < 2: # If this word generates one pattern we cannot gain any info from it, just leave the entropy at zero and skip the rest
-            event_counter[0] += 1
+            global_event_counter[0] += 1 # Should be single threaded access
             pattern_data.append(None)
             continue
 
@@ -158,7 +160,9 @@ def recursive_root(pattern_matrix: np.ndarray[int],
     ### BATCH PARALLEL SEARCH ###
     for batch_start in range(0, ncandidates, nthreads):
         batch_end = min(batch_start + nthreads, ncandidates)
-        event_counter[7] += 1
+        global_event_counter[7] += 1 # Is single threaded access
+        # local_event_counters = [np.zeros(9, dtype=np.int64) for _ in range(nthreads)] # Should create 16 fresh new event counters every time
+        local_event_counters = np.zeros((nthreads, 9), dtype=np.int64)
 
         # for idx in prange(nprune): # Make one of the top guesses
         for i in prange(batch_end - batch_start):
@@ -171,9 +175,9 @@ def recursive_root(pattern_matrix: np.ndarray[int],
                 if pattern == 242:
                     # if this pattern solves the game we don't need additional guesses...
                     # score += 0
-                    event_counter[2] += 1
+                    local_event_counters[i][2] += 1
                 elif count < 3:
-                    event_counter[4] += 1
+                    local_event_counters[i][4] += 1
                     # if count is 1 only 1 additional guess would be needed so return 1
                     # if count is 2 then 50% 1 additional and 50% 2 additional so return 1.5
                     # if count is 3 (we have to check this is garunteed) then 33% 1 additional and 66% 2 additional so return 1.66
@@ -182,7 +186,7 @@ def recursive_root(pattern_matrix: np.ndarray[int],
                     # score += 3*count - 1 
                     score += 2*count - 1 # px * (1 + (count-1)/count) = count/nanswers*(1 + (count-1)/count) = (1/nanswers)*(2*count - 1)
                 else:
-                    event_counter[3] += 1
+                    local_event_counters[i][3] += 1
                     next_ans_idxs = ans_idxs[pattern_row == pattern] # Remove non-matching answers from solution set
                     score += count*recursive_engine(pattern_matrix, 
                                                     nguesses, 
@@ -192,7 +196,7 @@ def recursive_root(pattern_matrix: np.ndarray[int],
                                                     1, 
                                                     global_cache, 
                                                     local_caches[i], 
-                                                    event_counter)
+                                                    local_event_counters[i])
                     
             candidate_scores[idx] = score/nanswers + 1
 
@@ -200,9 +204,13 @@ def recursive_root(pattern_matrix: np.ndarray[int],
             for key, value in local_cache.items():
                 if key not in global_cache:
                     global_cache[key] = value
+        
+        # Should do a single threaded sync of event counters
+        for i in range(nthreads):
+            global_event_counter += local_event_counters[i]
 
     return_lidxs = np.argsort(candidate_scores)
     return_gidxs = candidate_idxs[return_lidxs]
     return_scores = candidate_scores[return_lidxs]
     return_words = guesses[return_gidxs]
-    return (return_words, return_scores, event_counter)
+    return (return_words, return_scores, global_event_counter)

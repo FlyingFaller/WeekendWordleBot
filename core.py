@@ -143,12 +143,12 @@ class wordle_game:
             return {'recommendation': solution, 
                     'sorted_results': [(solution, 1)], 
                     'solve_time': 0.0, 
-                    'event_counts': np.zeros(9, dtype=np.int32)}
+                    'event_counts': np.zeros(9, dtype=np.int64)}
         if self.failed:
             return {'recommendation': None, 
                     'sorted_results': [], 
                     'solve_time': 0.0, 
-                    'event_counts': np.zeros(9, dtype=np.int32)}
+                    'event_counts': np.zeros(9, dtype=np.int64)}
         
         start_time = time.time()
         recursive_results = recursive_root(self.pattern_matrix, 
