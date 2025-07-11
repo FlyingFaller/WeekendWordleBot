@@ -1,6 +1,7 @@
 import numpy as np
 from numba import njit, prange
 from helpers import *
+NEVENT_TYPES = 16
 
 @njit(cache=False)
 def recursive_engine(pattern_matrix: np.ndarray, 
@@ -46,8 +47,8 @@ def recursive_engine(pattern_matrix: np.ndarray,
         if all_pcounts[-1] > 1 and len(patterns) >= nanswers:
             event_counter[1] += 1
             score = 1 + (nanswers-1)/nanswers # this guess plus chance another guess will be needed
-            # local_cache[key] = score
-            global_cache[key] = score
+            local_cache[key] = score
+            # global_cache[key] = score
             return score
 
         pcounts = all_pcounts[patterns]
@@ -58,47 +59,64 @@ def recursive_engine(pattern_matrix: np.ndarray,
 
     ### EVALUTE CANDIDATE GUESSES ###
     candidate_idxs = np.argsort(entropy_vals)[-nprune:]
-    candidate_scores = np.zeros(nprune, dtype=np.float64) # probable number of answers left after depth guesses
-    for i in range(nprune): # Make one of the top guesses
-        score = 0.0
+    min_partial_score = np.inf
+    for i in range(nprune):
+        partial_score = 0.0
+        children = []
+
         candidate_idx = candidate_idxs[i]
         pattern_row = pattern_columns[candidate_idx]
         patterns, pcounts = pattern_data[candidate_idx]
-
-        # loop through resulting patterns and figure out how many additional guesses are needed
-        for (pattern, count) in zip(patterns, pcounts): 
+        for (pattern, count) in zip(patterns, pcounts):
             if pattern == 242:
                 # if this pattern solves the game we don't need additional guesses...
                 event_counter[2] += 1
             elif count < 3:
                 event_counter[4] += 1
-                # if count is 1 only 1 additional guess would be needed so return 1
-                # if count is 2 then 50% 1 additional and 50% 2 additional so return 1.5
-                # if count is 3 (we have to check this is garunteed) then 33% 1 additional and 66% 2 additional so return 1.66
-
-                score += 2*count - 1 # px * (1 + (count-1)/count) = count/nanswers*(1 + (count-1)/count) = (1/nanswers)*(2*count - 1)
+                partial_score += 2*count - 1 # px * (1 + (count-1)/count) = count/nanswers*(1 + (count-1)/count) = (1/nanswers)*(2*count - 1)
             elif current_depth < max_depth:
                 event_counter[3] += 1
-                next_ans_idxs = ans_idxs[pattern_row == pattern] # Remove non-matching answers from solution set
-                score += count*recursive_engine(pattern_matrix, 
-                                                nguesses, 
-                                                next_ans_idxs, 
-                                                nprune, 
-                                                max_depth, 
-                                                current_depth+1, 
-                                                global_cache, 
-                                                local_cache, 
-                                                event_counter)
+                child_ans_idxs = ans_idxs[pattern_row == pattern] # Remove non-matching answers from solution set
+                children.append((child_ans_idxs, count))
             else:
                 event_counter[8] += 1
-                score += 1000 # prohibitively large number
+                partial_score += 1000 # prohibitively large number
 
-        candidate_scores[i] = score/nanswers + 1 # This guess plus the expected future number of guesses
-    result = np.min(candidate_scores)
-    # local_cache[key] = result
-    global_cache[key] = score
-    return result
-    
+            if partial_score >= min_partial_score:
+                # this candidate is bad enough we can discontinue the entire search line
+                event_counter[9] += 1
+                break
+
+        # if partial_score < min_partial_score:
+        else: # at the end of our fast loop the partial score was still the best we've seen
+            if children: # we must recurse to get a better number
+                for child in children:
+                    event_counter[10] += 1
+                    child_ans_idxs, count = child
+                    partial_score += count*recursive_engine(pattern_matrix, 
+                                                            nguesses, 
+                                                            child_ans_idxs, 
+                                                            nprune, 
+                                                            max_depth, 
+                                                            current_depth+1, 
+                                                            global_cache, 
+                                                            local_cache, 
+                                                            event_counter)
+                    if partial_score >= min_partial_score:
+                        # recursion has increased the score enough that the word is no longer the best
+                        event_counter[11] += 1
+                        break
+                else: # not executed if break is taken
+                    event_counter[12] += 1
+                    min_partial_score = partial_score
+            else: # fully resolved candidate AND its the best we've seen
+                event_counter[13] += 1
+                min_partial_score = partial_score
+
+    min_score = min_partial_score/nanswers + 1
+    local_cache[key] = min_score
+    return min_score
+
 @njit(cache=False, parallel=True)
 def recursive_root(pattern_matrix: np.ndarray[int], 
                    guesses: np.ndarray[str], 
@@ -110,20 +128,13 @@ def recursive_root(pattern_matrix: np.ndarray[int],
                    global_cache: dict, 
                    local_caches: dict) -> tuple[np.ndarray[str], np.ndarray[float], np.ndarray[int]]:
     """This function should return the best words to play and a bunch of info"""
-    # Compute top nprune words greedily
-    # Create thread pool for searching down further in the top words
-    # Somehow share cache between them
-    # Evaluate top words (minimize remaining entropy)
-    # Return ordered remaining entropy and words
-
-    # Need to add endgame checks.
 
     ### SETUP ###
     nanswers = len(ans_idxs)
     nguesses = len(guesses)
     nthreads = len(local_caches)
 
-    global_event_counter = np.zeros(9, dtype=np.int64)
+    global_event_counter = np.zeros(NEVENT_TYPES, dtype=np.int64)
 
     ### COMPILE NEXT GUESSES ###
     pattern_data = []
@@ -161,44 +172,36 @@ def recursive_root(pattern_matrix: np.ndarray[int],
     for batch_start in range(0, ncandidates, nthreads):
         batch_end = min(batch_start + nthreads, ncandidates)
         global_event_counter[7] += 1 # Is single threaded access
-        # local_event_counters = [np.zeros(9, dtype=np.int64) for _ in range(nthreads)] # Should create 16 fresh new event counters every time
-        local_event_counters = np.zeros((nthreads, 9), dtype=np.int64)
+        local_event_counters = np.zeros((nthreads, NEVENT_TYPES), dtype=np.int64)
 
         # for idx in prange(nprune): # Make one of the top guesses
         for i in prange(batch_end - batch_start):
             idx = i + batch_start
-            score = 0.0
+            partial_score = 0.0
             candidate_idx = candidate_idxs[idx]
             pattern_row = pattern_columns[candidate_idx]
             patterns, pcounts = pattern_data[candidate_idx]
             for (pattern, count) in zip(patterns, pcounts): 
                 if pattern == 242:
                     # if this pattern solves the game we don't need additional guesses...
-                    # score += 0
                     local_event_counters[i][2] += 1
                 elif count < 3:
                     local_event_counters[i][4] += 1
-                    # if count is 1 only 1 additional guess would be needed so return 1
-                    # if count is 2 then 50% 1 additional and 50% 2 additional so return 1.5
-                    # if count is 3 (we have to check this is garunteed) then 33% 1 additional and 66% 2 additional so return 1.66
-                    # score += count*(1 + 1/count + (count-1)/count*2)
-                    # score += count + 1 + (count - 1)*2
-                    # score += 3*count - 1 
-                    score += 2*count - 1 # px * (1 + (count-1)/count) = count/nanswers*(1 + (count-1)/count) = (1/nanswers)*(2*count - 1)
+                    partial_score += 2*count - 1 # px * (1 + (count-1)/count) = count/nanswers*(1 + (count-1)/count) = (1/nanswers)*(2*count - 1)
                 else:
                     local_event_counters[i][3] += 1
-                    next_ans_idxs = ans_idxs[pattern_row == pattern] # Remove non-matching answers from solution set
-                    score += count*recursive_engine(pattern_matrix, 
-                                                    nguesses, 
-                                                    next_ans_idxs, 
-                                                    nprune_global, 
-                                                    max_depth, 
-                                                    1, 
-                                                    global_cache, 
-                                                    local_caches[i], 
-                                                    local_event_counters[i])
+                    child_ans_idxs = ans_idxs[pattern_row == pattern] # Remove non-matching answers from solution set
+                    partial_score += count*recursive_engine(pattern_matrix, 
+                                                            nguesses, 
+                                                            child_ans_idxs, 
+                                                            nprune_global, 
+                                                            max_depth, 
+                                                            1, 
+                                                            global_cache, 
+                                                            local_caches[i], 
+                                                            local_event_counters[i])
                     
-            candidate_scores[idx] = score/nanswers + 1
+            candidate_scores[idx] = partial_score/nanswers + 1
 
         for local_cache in local_caches:
             for key, value in local_cache.items():
