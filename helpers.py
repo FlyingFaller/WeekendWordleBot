@@ -6,6 +6,7 @@ import multiprocessing
 from numba import njit
 import wordfreq
 import nltk
+import hashlib
 
 VALID_GUESSES_URL = "https://gist.github.com/dracos/dd0668f281e685bad51479e5acaadb93/raw/6bfa15d263d6d5b63840a8e5b64e04b382fdb079/valid-wordle-words.txt"
 VALID_GUESSES_FILE = "data/valid_guesses.txt"
@@ -204,6 +205,56 @@ def FNV_hash(arr: np.ndarray) -> np.int64:
         h = h ^ np.uint64(x)
         h = h * np.uint64(1099511628211)  # FNV_prime for 64-bit
     return np.int64(h)
+
+def python_hash(arr: np.ndarray) -> np.int64:
+    return hash(arr.tobytes())
+
+@njit(cache=True)
+def robust_mixing_hash(arr: np.ndarray) -> np.int64:
+    """
+    A robust, njit-compatible hash function for a 1D NumPy array of int64s.
+
+    This algorithm uses strong bit-mixing principles inspired by MurmurHash3's
+    finalizer to provide excellent distribution and collision resistance,
+    making it much more robust than FNV-1a for difficult datasets.
+    """
+    h = np.uint64(len(arr)) # Start with the length as a seed
+
+    for x in arr:
+        # Incorporate each element
+        k = np.uint64(x)
+
+        # Mixing constants - chosen for their properties in creating good bit dispersion
+        k *= np.uint64(0xff51afd7ed558ccd)
+        k ^= k >> np.uint64(33)
+        k *= np.uint64(0xc4ceb9fe1a85ec53)
+        k ^= k >> np.uint64(33)
+
+        # Mix it into the main hash value
+        h ^= k
+        # Rotate left by 27 bits - ensures bits from different positions interact
+        h = (h << np.uint64(27)) | (h >> np.uint64(37))
+        h = h * np.uint64(5) + np.uint64(0x52dce729)
+
+    # Final mixing function (aka "finalizer")
+    # This is crucial for breaking up final patterns.
+    h ^= h >> np.uint64(33)
+    h *= np.uint64(0xff51afd7ed558ccd)
+    h ^= h >> np.uint64(33)
+    h *= np.uint64(0xc4ceb9fe1a85ec53)
+    h ^= h >> np.uint64(33)
+
+    return np.int64(h)
+
+
+def blake2b(arr: np.ndarray) -> str:
+  """
+  Calculates a secure 128-bit (16-byte) BLAKE2b hash for a NumPy array.
+  """
+  # digest_size=16 specifies a 128-bit output
+  hasher = hashlib.blake2b(digest_size=16)
+  hasher.update(np.ascontiguousarray(arr).tobytes())
+  return hasher.hexdigest()
 
 def get_nltk_words(download=False) -> np.ndarray[str]:
     if download:
