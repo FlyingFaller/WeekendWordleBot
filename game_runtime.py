@@ -38,12 +38,17 @@ def play_wordle(pattern_matrix,
                 print(f"{'Entropy loop skips':.<40}{event_counts[0]}")
                 print(f"{'Entropy loop returns':.<40}{event_counts[1]}")
                 print(f"{'Solution pattern skips':.<40}{event_counts[2]}")
-                print(f"{'Recursions':.<40}{event_counts[3]}")
+                print(f"{'Recursions queued':.<40}{event_counts[3]}")
                 print(f"{'Small solution space skips':.<40}{event_counts[4]}")
                 print(f"{"Global cache hits":.<40}{event_counts[5]}")
                 print(f"{'Local cache hits':.<40}{event_counts[6]}")
                 print(f"{'Batches':.<40}{event_counts[7]}")
                 print(f"{'Max depth exceeded':.<40}{event_counts[8]}")
+                print(f"{'Min scores exceeded w/o recursions':.<40}{event_counts[9]}")
+                print(f"{'Recursions calculated':.<40}{event_counts[10]}")
+                print(f"{'Min scores exceeded with recursions':.<40}{event_counts[11]}")
+                print(f"{'New low scores with recursions':.<40}{event_counts[12]}")
+                print(f"{'New low scores w/o recursions':.<40}{event_counts[13]}")
         
             print(f"\nThe best {len(sorted_results)} words:")
             for i, (word, score) in enumerate(sorted_results):
