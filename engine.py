@@ -158,13 +158,16 @@ def recursive_root(pattern_matrix: np.ndarray[int],
         entropy_vals[i] = log2_nanswers - (sum_c_log2_c / nanswers)
 
     ### EVALUTE CANDIDATE GUESSES ###
-    ans_gidxs = ans_to_gss_map[ans_idxs]
-    ans_entropy_vals = entropy_vals[ans_gidxs]
-    ans_candidate_idxs = ans_gidxs[np.argsort(ans_entropy_vals)[-nprune_answers:]]
-
     gss_candidate_idxs = np.argsort(entropy_vals)[-nprune_global:]
 
-    candidate_idxs = np.union1d(gss_candidate_idxs, ans_candidate_idxs)
+    if nprune_answers > 0:
+        ans_gidxs = ans_to_gss_map[ans_idxs]
+        ans_entropy_vals = entropy_vals[ans_gidxs]
+        ans_candidate_idxs = ans_gidxs[np.argsort(ans_entropy_vals)[-nprune_answers:]]
+        candidate_idxs = np.union1d(gss_candidate_idxs, ans_candidate_idxs)
+    else:
+        candidate_idxs = gss_candidate_idxs
+
     ncandidates = len(candidate_idxs)
     candidate_scores = np.zeros(ncandidates, dtype=np.float64) # probable number of answers left after depth guesses
 
