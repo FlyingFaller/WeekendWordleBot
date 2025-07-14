@@ -49,6 +49,7 @@ def play_wordle(pattern_matrix,
                 print(f"{'Min scores exceeded with recursions':.<40}{event_counts[11]}")
                 print(f"{'New low scores with recursions':.<40}{event_counts[12]}")
                 print(f"{'New low scores w/o recursions':.<40}{event_counts[13]}")
+                print(f"{'Hash collisions':.<40}{event_counts[14]}")
         
             print(f"\nThe best {len(sorted_results)} words:")
             for i, (word, score) in enumerate(sorted_results):

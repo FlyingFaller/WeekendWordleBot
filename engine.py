@@ -16,14 +16,21 @@ def recursive_engine(pattern_matrix: np.ndarray,
     # the question this should answer is, on average, how guesses will the game take to complete from this state
     # N (depth) guesses 
     ### CACHE LOOKUP ###
+    check_hash_collision = False
+    cache_value = None
+
     # key = (PNR_hash(ans_idxs), depth)
     key = FNV_hash(ans_idxs)
     if key in local_cache:
         event_counter[6] += 1  # Increment the "local cache hit" counter
-        return local_cache[key]
+        check_hash_collision = True
+        cache_value = local_cache[key]
+        # return local_cache[key]
     if key in global_cache:
         event_counter[5] += 1  # Increment the "global cache hit" counter
-        return global_cache[key]
+        check_hash_collision = True
+        cache_value = global_cache[key]
+        # return global_cache[key]
 
     nanswers = len(ans_idxs)
 
@@ -48,7 +55,9 @@ def recursive_engine(pattern_matrix: np.ndarray,
             event_counter[1] += 1
             score = 1 + (nanswers-1)/nanswers # this guess plus chance another guess will be needed
             local_cache[key] = score
-            # global_cache[key] = score
+            if check_hash_collision:
+                if cache_value != score:
+                    event_counter[14] += 1
             return score
 
         pcounts = all_pcounts[patterns]
@@ -115,6 +124,9 @@ def recursive_engine(pattern_matrix: np.ndarray,
 
     min_score = min_partial_score/nanswers + 1
     local_cache[key] = min_score
+    if check_hash_collision:
+        if cache_value != min_score:
+            event_counter[14] += 1
     return min_score
 
 @njit(cache=False, parallel=True)
