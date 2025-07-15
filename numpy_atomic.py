@@ -10,6 +10,7 @@ from numba.core import cgutils
 from numba.core.typing.arraydecl import get_array_index_type
 from numba.extending import lower_builtin, type_callable
 from numba.np.arrayobj import make_array, normalize_indices, basic_indexing
+from numba.core.typing import signature
 
 __all__ = ["atomic_add", "atomic_sub", "atomic_max", "atomic_min"]
 
@@ -133,3 +134,85 @@ def atomic_min(ary, i, v):
     orig = ary[i]
     ary[i] = min(ary[i], v)
     return orig
+
+### NEW CODE ATOMIC COMPARE AND SWAP ###
+
+def atomic_cas(ary, i, cmp, val):
+    """
+    Atomically performs:
+    if ary[i] == cmp:
+        ary[i] = val
+    Returns the *original* value of ary[i]. The caller can check if
+    original_value == cmp to see if the swap was successful.
+    
+    This Python body is never executed in nopython mode.
+    """
+    # This body is just for the interpreter and type inference.
+    # The @lower_builtin implementation above is what runs in compiled code.
+    orig = ary[i]
+    if orig == cmp:
+        ary[i] = val
+    return orig
+
+@type_callable(atomic_cas)
+def type_atomic_cas(context):
+    """
+    This is the missing piece. It tells Numba how to determine the
+    type signature of atomic_cas.
+    """
+    def typer(ary, idx, cmp, val):
+        # Get the type of the array's elements
+        out = get_array_index_type(ary, idx)
+        if out is not None:
+            res = out.result
+            # Check if the compare/value args are compatible
+            if context.can_convert(cmp, res) and context.can_convert(val, res):
+                # The function returns a value of the same type as the array's elements
+                return res
+    return typer
+
+# In numpy_atomic.py, replace the old lower_atomic_cas with this one.
+
+@lower_builtin(atomic_cas, types.Buffer, types.Any, types.Any, types.Any)
+def lower_atomic_cas(context, builder, sig, args):
+    """
+    Low-level implementation for atomic_cas(array, index, cmp, val).
+    This version uses the robust `basic_indexing` helper.
+    """
+    aryty, idxty, cmpty, valty = sig.args
+    ary, idx, cmp, val = args
+
+    # --- Start: Use the robust indexing logic from declare_atomic_array_op ---
+    if isinstance(idxty, types.BaseTuple):
+        index_types = idxty.types
+        indices = cgutils.unpack_tuple(builder, idx, count=len(idxty))
+    else:
+        index_types = (idxty,)
+        indices = (idx,)
+
+    ary = make_array(aryty)(context, builder, ary)
+
+    index_types, indices = normalize_indices(context, builder, index_types, indices)
+    dataptr, shapes, _strides = basic_indexing(
+        context, builder, aryty, ary, index_types, indices, boundscheck=context.enable_boundscheck,
+    )
+    if shapes:
+        raise NotImplementedError("atomic_cas does not support slices or complex shapes")
+    # --- End: Robust indexing logic ---
+
+    # Cast the `cmp` and `val` arguments to the array's element type
+    cmp = context.cast(builder, cmp, cmpty, aryty.dtype)
+    val = context.cast(builder, val, valty, aryty.dtype)
+
+    # Numba represents values as a (data, metadata) pair. We need the data part.
+    cmp_dataval = context.get_value_as_data(builder, aryty.dtype, cmp)
+    val_dataval = context.get_value_as_data(builder, aryty.dtype, val)
+
+    # Perform the atomic compare-and-exchange operation
+    res_pair = builder.cmpxchg(dataptr, cmp_dataval, val_dataval, "monotonic", "monotonic")
+
+    # Extract the original value that was in memory from the returned pair.
+    original_value = builder.extract_value(res_pair, 0)
+
+    # Re-box the raw data value into a Numba type so it can be used in jitted code
+    return context.get_data_as_value(builder, aryty.dtype, original_value)
