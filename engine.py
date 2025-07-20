@@ -23,14 +23,14 @@ def recursive_engine(pattern_matrix: np.ndarray,
     key = FNV_hash(ans_idxs)
     if key in local_cache:
         event_counter[6] += 1  # Increment the "local cache hit" counter
-        check_hash_collision = True
-        cache_value = local_cache[key]
-        # return local_cache[key]
+        # check_hash_collision = True
+        # cache_value = local_cache[key]
+        return local_cache[key]
     if key in global_cache:
         event_counter[5] += 1  # Increment the "global cache hit" counter
-        check_hash_collision = True
-        cache_value = global_cache[key]
-        # return global_cache[key]
+        # check_hash_collision = True
+        # cache_value = global_cache[key]
+        return global_cache[key]
 
     nanswers = len(ans_idxs)
 
@@ -124,9 +124,9 @@ def recursive_engine(pattern_matrix: np.ndarray,
 
     min_score = min_partial_score/nanswers + 1
     local_cache[key] = min_score
-    if check_hash_collision:
-        if cache_value != min_score:
-            event_counter[14] += 1
+    # if check_hash_collision:
+    #     if cache_value != min_score:
+    #         event_counter[14] += 1
     return min_score
 
 @njit(cache=False, parallel=True)
