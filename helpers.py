@@ -94,30 +94,6 @@ def get_pattern_matrix(guesses:np.ndarray[str], answers: np.ndarray[str], savefi
         np.save(savefile, pattern_matrix)
     return pattern_matrix
 
-# def get_words(savefile=VALID_WORDS_FILE, url=VALID_WORDS_URL, refetch=False, save=True) -> np.ndarray[str]:
-#     """Retrieves the word list from file it it exists otherwise it fetches from url."""
-#     if not refetch:
-#         if os.path.exists(savefile):
-#             print("Fetching all valid words from file")
-#             with open(savefile, 'r') as f:
-#                 # The last line might be empty, so we filter it out.
-#                 return np.array([line.strip() for line in f if line.strip()], dtype=str)
-#     print("No word list exists or refetching requested, fetching from the web")
-#     try:
-#         response = requests.get(url)
-#         # Raises an HTTPError if the HTTP request returned an unsuccessful status code.
-#         response.raise_for_status()
-#         words_text = response.text
-#         if save:
-#             print("Saving word list to file")
-#             with open(savefile, 'w') as f:
-#                 f.write(words_text)
-#         # The last line might be empty, so we filter it out.
-#         return np.array([word for word in words_text.splitlines() if word])
-#     except requests.exceptions.RequestException as e:
-#         print(f"Error downloading the word list: {e}")
-#         return np.array([], dtype=str)
-
 def get_words(savefile=VALID_GUESSES_FILE, url=VALID_GUESSES_URL, refetch=False, save=True) -> np.ndarray[str]:
     """
     Retrieves the word list, filtering for lowercase a-z words.
