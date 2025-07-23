@@ -1,7 +1,5 @@
 import numpy as np
 import time
-from numba import float64, int64
-from numba.typed import Dict
 import wordfreq
 from helpers import *
 from engine import *
@@ -20,15 +18,13 @@ class InvalidPatternError(ValueError):
         super().__init__(f"Invalid pattern '{pattern}': {reason}")
 
 class wordle_game:
-    def __init__(self, pattern_matrix, guesses, answers, nprune_global, nprune_answers, max_depth=6, batch_size=16):
+    def __init__(self, pattern_matrix, guesses, answers, nprune_global, nprune_answers, max_depth=6, segment_capacity=100_000):
         self.pattern_matrix = pattern_matrix
         self.guess_set = guesses
         self.answer_set = answers
         self.nprune_global = nprune_global
         self.nprune_answers = nprune_answers
-        self.batch_size = batch_size
-        self.global_cache = Dict.empty(key_type=int64, value_type=float64)
-        self.local_caches = [Dict.empty(key_type=int64, value_type=float64) for _ in range(batch_size)]
+        self.cache = Cache(segment_capacity)
         self.ans_to_gss_map = np.where(np.isin(guesses, answers))[0]
         self.ans_idxs = np.arange(0, len(answers))
         self._old_ans_idxs = []
@@ -152,14 +148,13 @@ class wordle_game:
         
         start_time = time.time()
         recursive_results = recursive_root(self.pattern_matrix, 
-                                            self.guess_set, 
-                                            self.ans_idxs, 
-                                            self.ans_to_gss_map, 
-                                            self.nprune_global, 
-                                            self.nprune_answers,
-                                            self.max_depth,
-                                            self.global_cache, 
-                                            self.local_caches)
+                                           self.guess_set, 
+                                           self.ans_idxs, 
+                                           self.ans_to_gss_map, 
+                                           self.nprune_global, 
+                                           self.nprune_answers,
+                                           self.max_depth,
+                                           self.cache)
         words, scores, event_counter = recursive_results
         end_time = time.time()
 
@@ -168,15 +163,6 @@ class wordle_game:
         sorted_results = sorted(results, key=self._sort_key)
 
         recommendation = sorted_results[0][0]
-        # min_score = sorted_results[0][1]
-        # if len(self.ans_idxs) < self.nprune_answers:
-        #     max_freq = 0
-        #     for word, score in sorted_results:
-        #         if word in set(self.current_answer_set) and score - min_score <= 0.5:
-        #             freq = wordfreq.word_frequency(word, 'en')
-        #             if freq > max_freq:
-        #                 recommendation = word
-        #                 max_freq = freq
 
         return {'recommendation': recommendation, 
                 'sorted_results': sorted_results,
