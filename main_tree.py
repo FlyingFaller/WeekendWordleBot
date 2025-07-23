@@ -24,7 +24,7 @@ if __name__ == "__main__":
     pattern_matrix = get_pattern_matrix(guesses, answers, savefile="data/temp_pattern_matrix_again.npy")
 
     ### PLAY THE REAL GAME ###
-    play_wordle(pattern_matrix, guesses, answers, nprune_global=25, nprune_answers=25, starting_guess="SALET", show_stats=True, discord_printout=True)
+    play_wordle(pattern_matrix, guesses, answers, nprune_global=50, nprune_answers=50, starting_guess="SALET", show_stats=True, discord_printout=True)
 
     # final_result = run_solver(pattern_matrix, np.arange(0, len(answers)), len(guesses), 6, 6, 16)
 
