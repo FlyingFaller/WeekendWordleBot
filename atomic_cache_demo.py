@@ -3,7 +3,7 @@ from numba import njit, prange
 from numba.experimental import jitclass
 from numba.types import int64, float64, ListType, uint64
 from numba.typed import List as ListObj
-from numpy_atomic import atomic_cas, atomic_add, atomic_sub
+from atomic_ops import atomic_cas, atomic_add, atomic_sub
 import typing
 import time
 
@@ -57,6 +57,7 @@ EMPTY_KEY = np.uint64(0)
 @jitclass
 class ExpandingCache:
     segment_capacity: uint64
+    full_threshold: float64
     growth_lock: AtomicInt
     key_segments: ListArrUint64
     value_segments: ListArrFloat64
@@ -64,6 +65,7 @@ class ExpandingCache:
 
     def __init__(self, segment_capacity):
         self.segment_capacity = segment_capacity
+        self.full_threshold = 0.80*segment_capacity
         self.growth_lock = AtomicInt(0)
 
         self.key_segments = ListObj.empty_list(uint64[:])
@@ -78,7 +80,7 @@ class ExpandingCache:
     def _acquire_lock(self):
         """Acquires a spinlock using the clean AtomicInt API."""
         # If growth_lock == 0 then we swap with 1 to aquire, return 0
-        # If growth_lock == 1
+        # If growth_lock == 1 the swap fails and the while attempts it again (spins)
         while self.growth_lock.atomic_cas(0, 1) == 1:
             pass
             
@@ -116,7 +118,7 @@ class ExpandingCache:
     def _segment_set(self, segment_index, key, value):
         """Helper to set a key in a specific segment's arrays."""
         fill_count: AtomicInt = self.fill_count_segments[segment_index]
-        if fill_count.get() >= self.segment_capacity * 0.80:
+        if fill_count.get() >= self.full_threshold:
             return False # Signal that this segment is full
 
         keys = self.key_segments[segment_index]
@@ -127,7 +129,7 @@ class ExpandingCache:
             index = (probe_start + i) % self.segment_capacity
 
             if keys[index] == key:
-                return True # Key already exists
+                return True # Key already exists, potential to check for hash collision
 
             if keys[index] == EMPTY_KEY:
                 original_value = atomic_cas(keys, index, EMPTY_KEY, key)
