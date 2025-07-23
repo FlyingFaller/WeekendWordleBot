@@ -10,9 +10,6 @@ import matplotlib.pyplot as plt
 
 import itertools
 import math
-import multiprocessing
-from multiprocessing import shared_memory
-from concurrent.futures import ProcessPoolExecutor
 
 def benchmark_algorithm(pattern_matrix, 
                         guesses, 
@@ -24,7 +21,6 @@ def benchmark_algorithm(pattern_matrix,
                         max_guesses,
                         seed = None,
                         starting_guess=None, 
-                        batch_size=16, 
                         plot=False,
                         real_time=False) -> dict:
     start_time = time.time()
@@ -57,7 +53,7 @@ def benchmark_algorithm(pattern_matrix,
         real_answer = test_answers[real_answer_idx]
         game_answers.append(real_answer)
         test_answers = np.delete(test_answers, real_answer_idx)
-        game_obj = wordle_game(pattern_matrix, guesses, solver_answers, nprune_global, nprune_answers, batch_size)
+        game_obj = wordle_game(pattern_matrix, guesses, solver_answers, nprune_global, nprune_answers)
 
         solve_times = []
         event_counts = []
