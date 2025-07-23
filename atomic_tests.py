@@ -2,7 +2,7 @@ import numpy as np
 from numba import njit, prange, get_num_threads, get_thread_id
 
 # Assuming numpy_atomic.py is in the same directory
-from numpy_atomic import atomic_add
+from atomic_ops import atomic_add
 
 # --- Problem Demonstration: Race Condition ---
 # This function demonstrates what happens without atomic operations.

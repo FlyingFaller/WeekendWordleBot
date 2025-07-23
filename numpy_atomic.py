@@ -1,5 +1,5 @@
 ################################################################################################################################################
-# All credit to https://github.com/arthurp who (presumably) wrote this code                                                                    #
+# All credit to https://github.com/arthurp who (presumably) wrote atomic_add, atomic_sub, atomic_min, and atomic_max                           #
 # Sourced from https://github.com/KatanaGraph/katana/blob/4f418f0aeab539c05fd296f3b28c5b7616dc747f/python/katana/numba_support/numpy_atomic.py #
 # BSD Licensed                                                                                                                                 #
 # Copyright 2018 The University of Texas at Austin                                                                                             #    
@@ -135,18 +135,9 @@ def atomic_min(ary, i, v):
     ary[i] = min(ary[i], v)
     return orig
 
-### NEW CODE ATOMIC COMPARE AND SWAP ###
+### NEW CODE HERE: ATOMIC COMPARE AND SWAP ###
 
 def atomic_cas(ary, i, cmp, val):
-    """
-    Atomically performs:
-    if ary[i] == cmp:
-        ary[i] = val
-    Returns the *original* value of ary[i]. The caller can check if
-    original_value == cmp to see if the swap was successful.
-    
-    This Python body is never executed in nopython mode.
-    """
     # This body is just for the interpreter and type inference.
     # The @lower_builtin implementation above is what runs in compiled code.
     orig = ary[i]
@@ -156,10 +147,6 @@ def atomic_cas(ary, i, cmp, val):
 
 @type_callable(atomic_cas)
 def type_atomic_cas(context):
-    """
-    This is the missing piece. It tells Numba how to determine the
-    type signature of atomic_cas.
-    """
     def typer(ary, idx, cmp, val):
         # Get the type of the array's elements
         out = get_array_index_type(ary, idx)
@@ -171,18 +158,11 @@ def type_atomic_cas(context):
                 return res
     return typer
 
-# In numpy_atomic.py, replace the old lower_atomic_cas with this one.
-
 @lower_builtin(atomic_cas, types.Buffer, types.Any, types.Any, types.Any)
 def lower_atomic_cas(context, builder, sig, args):
-    """
-    Low-level implementation for atomic_cas(array, index, cmp, val).
-    This version uses the robust `basic_indexing` helper.
-    """
     aryty, idxty, cmpty, valty = sig.args
     ary, idx, cmp, val = args
 
-    # --- Start: Use the robust indexing logic from declare_atomic_array_op ---
     if isinstance(idxty, types.BaseTuple):
         index_types = idxty.types
         indices = cgutils.unpack_tuple(builder, idx, count=len(idxty))
@@ -198,7 +178,6 @@ def lower_atomic_cas(context, builder, sig, args):
     )
     if shapes:
         raise NotImplementedError("atomic_cas does not support slices or complex shapes")
-    # --- End: Robust indexing logic ---
 
     # Cast the `cmp` and `val` arguments to the array's element type
     cmp = context.cast(builder, cmp, cmpty, aryty.dtype)
