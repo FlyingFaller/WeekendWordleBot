@@ -7,6 +7,7 @@ from numba import njit
 import wordfreq
 import nltk
 import hashlib
+from cache import Cache
 
 VALID_GUESSES_URL = "https://gist.github.com/dracos/dd0668f281e685bad51479e5acaadb93/raw/6bfa15d263d6d5b63840a8e5b64e04b382fdb079/valid-wordle-words.txt"
 VALID_GUESSES_FILE = "data/valid_guesses.txt"
@@ -169,7 +170,7 @@ def PNR_hash(arr: np.ndarray) -> np.int64:
     return hash_value
 
 @njit(cache=True)
-def FNV_hash(arr: np.ndarray) -> np.int64:
+def FNV_hash(arr: np.ndarray) -> np.uint64:
     """
     Computes a hash for a 1D NumPy array of int64 integers.
 
@@ -180,7 +181,7 @@ def FNV_hash(arr: np.ndarray) -> np.int64:
     for x in arr:
         h = h ^ np.uint64(x)
         h = h * np.uint64(1099511628211)  # FNV_prime for 64-bit
-    return np.int64(h)
+    return h
 
 def python_hash(arr: np.ndarray) -> np.int64:
     return hash(arr.tobytes())
@@ -272,3 +273,23 @@ def filter_words_by_POS(input_words, tags=['NNS', 'VBD', 'VBN'], download=False)
     filtered_list = [word for word, tag in tagged_words if tag not in exclude_tags]
 
     return np.array(filtered_list)
+
+def print_stats(event_counts: np.ndarray[np.int64], cache: Cache):
+    padding = 45
+    cache_entries = sum([atomic_int.value[0] for atomic_int in cache.fill_count_segments])
+    print(f"\nStats:")
+    print(f"{'Cache hits':.<{padding}}{event_counts[0]}")
+    print(f"{'Entropy loop skips':.<{padding}}{event_counts[1]}")
+    print(f"{'Entropy loop exits':.<{padding}}{event_counts[2]}")
+    print(f"{'Winning patterns found':.<{padding}}{event_counts[3]}")
+    print(f"{'Low answer count patterns found':.<{padding}}{event_counts[4]}")
+    print(f"{'Recusions queued':.<{padding}}{event_counts[5]}")
+    print(f"{'Depth limits reached while recusing':.<{padding}}{event_counts[6]}")
+    print(f"{'Min scores exceeded during simple calcs':.<{padding}}{event_counts[7]}")
+    print(f"{'Recusions called':.<{padding}}{event_counts[8]}")
+    print(f"{'Min scores exceeded during recursion':.<{padding}}{event_counts[9]}")
+    print(f"{'New min scores found after recursing':.<{padding}}{event_counts[10]}")
+    print(f"{'New min scores found without recursing':.<{padding}}{event_counts[11]}")
+    print(f"{'Leaf node calculations completed in full':.<{padding}}{event_counts[12]}")
+    print(f"{'Cache entries':.<{padding}}{cache_entries}")
+    print(f"{'Cache segments':.<{padding}}{len(cache.key_segments)}")
