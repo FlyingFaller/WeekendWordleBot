@@ -18,22 +18,48 @@ class InvalidPatternError(ValueError):
         super().__init__(f"Invalid pattern '{pattern}': {reason}")
 
 class wordle_game:
-    def __init__(self, pattern_matrix, guesses, answers, nprune_global, nprune_answers, max_depth=6, segment_capacity=100_000):
+    def __init__(self, pattern_matrix: np.ndarray[np.uint8], 
+                 guesses: np.ndarray[str], 
+                 answers: np.ndarray[str], 
+                 nprune_global: int, 
+                 nprune_answers: int, 
+                 max_depth: int = 6, 
+                 segment_capacity: int = 100_000, # Still need to get a better automatic estimate for this
+                 answer_indicies: np.ndarray[int] = None):
+
+        if (len(guesses), len(answers)) != pattern_matrix.shape:
+            raise Exception(f'Pattern matrix must be shape (guesses, answers). Got shape {pattern_matrix.shape}, expected {(len(guesses), len(answers))}.')
+        
+        if not set(answers).issubset(set(guesses)):
+            raise Exception(f'Guess set must completely contain all answers in answer set.')
+
+        self.ans_idxs = [np.arange(0, len(answers))] if answer_indicies is None else [answer_indicies]
+        # self._old_ans_idxs = []
+        self.ans_to_gss_map = np.where(np.isin(guesses, answers))[0]
+
+        # Set true if answer_indicies is passed and is a subset of the answer_set
+        self.reduced_answer_set = [pattern_matrix.shape[1] > len(self.ans_idxs[-1])]
+
         self.pattern_matrix = pattern_matrix
         self.guess_set = guesses
         self.answer_set = answers
+        self.current_answer_set = self.answer_set[self.ans_idxs[-1]]
+        
         self.nprune_global = nprune_global
         self.nprune_answers = nprune_answers
+        self.max_depth = max_depth
+
         self.cache = Cache(segment_capacity)
-        self.ans_to_gss_map = np.where(np.isin(guesses, answers))[0]
-        self.ans_idxs = np.arange(0, len(answers))
-        self._old_ans_idxs = []
-        self.solved = False
-        self.failed = False
+
         self.guesses_played = []
         self.patterns_seen = []
-        self.current_answer_set = self.answer_set[self.ans_idxs]
-        self.max_depth = max_depth
+        
+        self.solved = False
+        self.failed = False
+
+        print(f"[DEBUG][INIT]: {len(self.ans_idxs) = }")
+        print(f"[DEBUG][INIT]: {self.ans_idxs[0].shape = }")
+        print(f"[DEBUG][INIT]: {len(self.reduced_answer_set) = }")
 
     def _sort_key(self, item):
         word = item[0]
@@ -75,33 +101,64 @@ class wordle_game:
         guess_played, guess_played_idx = self.validate_guess(guess)
         pattern_int = self.validate_pattern(pattern)
 
-        pattern_matrix_row = self.pattern_matrix[guess_played_idx, self.ans_idxs]
-        next_ans_idxs = self.ans_idxs[pattern_matrix_row == pattern_int]        
+        current_ans_idxs = self.ans_idxs[-1]
+        print(f"[DEBUG][MAKE_GUESS]: {current_ans_idxs.shape = }")
+        pattern_matrix_row = self.pattern_matrix[guess_played_idx, current_ans_idxs]
+        next_ans_idxs = current_ans_idxs[pattern_matrix_row == pattern_int]
+        print(f"[DEBUG][MAKE_GUESS]: {next_ans_idxs.shape = }")
+
         self.guesses_played.append(guess_played)
         self.patterns_seen.append(pattern_int)
-        self._old_ans_idxs.append(self.ans_idxs)
-        self.ans_idxs = next_ans_idxs
+        self.reduced_answer_set.append(self.reduced_answer_set[-1]) # This will be updated in in update_game_state()
+        print(f"[DEBUG][MAKE_GUESS]: {len(self.reduced_answer_set) = }")
+        print(f"[DEBUG][MAKE_GUESS]: {self.reduced_answer_set = }")
+        # self._old_ans_idxs.append(self.ans_idxs)
+        self.ans_idxs.append(next_ans_idxs)
+        print(f"[DEBUG][MAKE_GUESS]: {len(self.ans_idxs) = }")
+
+        # self.ans_idxs = next_ans_idxs
+
         self.update_game_state()
 
     def pop_last_guess(self):
-        self.guesses_played.pop(-1)
-        self.patterns_seen.pop(-1)
-        self.ans_idxs = self._old_ans_idxs.pop(-1)
-        self.update_game_state()
+        # Now broken due to reduced answer sets being possible
+        if len(self.guesses_played) > 0:
+            self.guesses_played.pop(-1)
+            self.patterns_seen.pop(-1)
+            self.reduced_answer_set.pop(-1)
+            # self.ans_idxs = self._old_ans_idxs.pop(-1)
+            self.ans_idxs.pop(-1)
+            self.update_game_state()
+
+    def regenerate_answer_idxs(self):
+        print('[DEBUG][REGEN_ANSWERS]: Regenerated answer idxs.')
+        new_ans_idxs = np.arange(0, len(self.answer_set))
+        for (guess, pattern_int) in zip(self.guesses_played, self.patterns_seen):
+            guess_idx = np.where(self.guess_set == guess.lower())[0]
+            pattern_matrix_row = self.pattern_matrix[guess_idx, new_ans_idxs]
+            new_ans_idxs = new_ans_idxs[pattern_matrix_row == pattern_int]
+        self.ans_idxs[-1] = new_ans_idxs
 
     def update_game_state(self):
         """Want to check if no possible answer remain or the answer has been played"""
-        self.current_answer_set = self.answer_set[self.ans_idxs]
-        if len(self.ans_idxs) < 1:
-            self.failed = True
-            self.solved = False
+        current_ans_idxs = self.ans_idxs[-1]
+        self.current_answer_set = self.answer_set[current_ans_idxs]
+        if len(current_ans_idxs) < 1:
+            if self.reduced_answer_set[-1]:
+                # We need to expand the answer set and try to continue
+                self.regenerate_answer_idxs()
+                self.reduced_answer_set[-1] = False
+                self.update_game_state() # Call this again to check if we still have 0 possible answers
+            else:
+                self.failed = True
+                self.solved = False
         elif len(self.patterns_seen) > 0: 
             if self.patterns_seen[-1] == pattern_to_int(5*[GREEN]):
                 self.solved = True
                 self.failed = False
     
     def get_game_state(self) -> dict:
-        answers_remaining = len(self.ans_idxs)
+        answers_remaining = len(self.ans_idxs[-1])
         nguesses = len(self.guesses_played)
         return {'answers_remaining': answers_remaining,
                 'nguesses': nguesses,
@@ -114,7 +171,8 @@ class wordle_game:
         ret_str = f"## :robot: WeekendWordleBot #{game_number} :robot:\n"
         for i, (guess, pattern) in enumerate(zip(self.guesses_played, self.patterns_seen)):
             guess_idx = np.where(self.guess_set == guess.lower())[0]
-            pattern_matrix_row = self.pattern_matrix[guess_idx, self._old_ans_idxs[i]]
+            # pattern_matrix_row = self.pattern_matrix[guess_idx, self._old_ans_idxs[i]]
+            pattern_matrix_row = self.pattern_matrix[guess_idx, self.ans_idxs[i]]
             words_remaining = len(pattern_matrix_row)
             _, counts = np.unique_counts(pattern_matrix_row)
             pxs = counts/words_remaining
@@ -134,8 +192,9 @@ class wordle_game:
         return ret_str
 
     def compute_next_guess(self) -> dict:
-        if self.solved or len(self.ans_idxs) == 1:
-            solution = self.answer_set[self.ans_idxs[0]]
+        current_ans_idxs = self.ans_idxs[-1]
+        if self.solved or len(current_ans_idxs) == 1:
+            solution = self.answer_set[current_ans_idxs[0]]
             return {'recommendation': solution, 
                     'sorted_results': [(solution, 1)], 
                     'solve_time': 0.0, 
@@ -149,7 +208,7 @@ class wordle_game:
         start_time = time.time()
         recursive_results = recursive_root(self.pattern_matrix, 
                                            self.guess_set, 
-                                           self.ans_idxs, 
+                                           current_ans_idxs, 
                                            self.ans_to_gss_map, 
                                            self.nprune_global, 
                                            self.nprune_answers,

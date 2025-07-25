@@ -10,9 +10,10 @@ if __name__ == "__main__":
     guesses = get_words(refetch=False)
     original_answers = get_words(url=ORIGINAL_ANSWERS_URL, refetch=True, save=False)
     freq, idx, word = get_minimum_freq(original_answers)
-    all_words = get_words("data/en_US-large.txt")
-    answers = filter_words_by_suffix(guesses, all_words, suffixes=['s','es', 'ed'], min_freq=0)
+    all_5letter_words = get_words("data/en_US-large.txt")
+    answers = filter_words_by_suffix(guesses, all_5letter_words, suffixes=['s','es', 'ed'], min_freq=0)
     answers = filter_words_by_occurance(answers, min_freq=freq)
+    old_answer_set = answers
     # print(f"{len(answers) = }")
     # guess_set = set(answers)
     # guess_set = set(filter_words_by_length(all_words, 5))
@@ -21,10 +22,28 @@ if __name__ == "__main__":
     #         print(answer)
 
     # print(f"Reduction: {len(guesses) - len(answers)}")
-    pattern_matrix = get_pattern_matrix(guesses, answers, savefile="data/temp_pattern_matrix_again.npy")
+
+    # pattern_matrix = get_pattern_matrix(guesses, answers, savefile="data/temp_pattern_matrix_again.npy")
 
     ### PLAY THE REAL GAME ###
-    play_wordle(pattern_matrix, guesses, answers, nprune_global=50, nprune_answers=50, starting_guess="SALET", show_stats=True, discord_printout=True)
+    # play_wordle(pattern_matrix, guesses, answers, nprune_global=50, nprune_answers=50, starting_guess="SALET", show_stats=True, discord_printout=True)
+
+    ### PLAY THE GAME BUT SAFE THIS TIME ###
+    guesses = get_words(refetch=False)
+    answers = get_words(refetch=False)
+    pattern_matrix = get_pattern_matrix(guesses, answers, savefile = "data/full_pattern_matrix.npy")
+
+    original_answers = get_words(url=ORIGINAL_ANSWERS_URL, refetch=True, save=False)
+    freq, idx, word = get_minimum_freq(original_answers)
+    all_5letter_words = get_words("data/en_US-large.txt")
+    reduced_answers = filter_words_by_suffix(answers, all_5letter_words, suffixes=['s','es', 'ed'], min_freq=0)
+    reduced_answers = filter_words_by_occurance(reduced_answers, min_freq=freq)
+
+    ans_idxs = np.where(np.isin(answers, reduced_answers))[0]
+    print(answers[ans_idxs].tolist() == old_answer_set.tolist())
+    play_wordle(pattern_matrix, guesses, answers, nprune_global=5, nprune_answers=5, starting_guess="SALET", show_stats=True, discord_printout=True, answer_indicies=None)
+
+
 
     # final_result = run_solver(pattern_matrix, np.arange(0, len(answers)), len(guesses), 6, 6, 16)
 

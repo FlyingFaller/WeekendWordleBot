@@ -10,9 +10,10 @@ def play_wordle(pattern_matrix,
                 nprune_answers = 15, 
                 starting_guess: str= "SALET", 
                 show_stats=True,
-                discord_printout=True):
+                discord_printout=True,
+                answer_indicies=None):
     
-    game_obj = wordle_game(pattern_matrix, guesses, answers, nprune_global, nprune_answers)
+    game_obj = wordle_game(pattern_matrix, guesses, answers, nprune_global, nprune_answers, answer_indicies)
     answers_remaining = len(answers)
 
     if discord_printout:
