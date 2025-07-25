@@ -241,7 +241,7 @@ def get_nltk_words(download=False) -> np.ndarray[str]:
 def filter_words_by_length(words, length) -> np.ndarray[str]:
     return np.array([word.lower() for word in words if len(word) == length])
 
-def filter_words_by_suffix(input_words, filter_words, suffixes=[], min_freq=0) -> np.ndarray[str]:
+def filter_words_by_suffix(input_words, filter_words, suffixes=[]) -> np.ndarray[str]:
     if len(suffixes) == 0: 
         return input_words
 
@@ -278,18 +278,18 @@ def print_stats(event_counts: np.ndarray[np.int64], cache: Cache):
     padding = 45
     cache_entries = sum([atomic_int.value[0] for atomic_int in cache.fill_count_segments])
     print(f"\nStats:")
-    print(f"{'Cache hits':.<{padding}}{event_counts[0]}")
-    print(f"{'Entropy loop skips':.<{padding}}{event_counts[1]}")
-    print(f"{'Entropy loop exits':.<{padding}}{event_counts[2]}")
-    print(f"{'Winning patterns found':.<{padding}}{event_counts[3]}")
-    print(f"{'Low answer count patterns found':.<{padding}}{event_counts[4]}")
-    print(f"{'Recusions queued':.<{padding}}{event_counts[5]}")
-    print(f"{'Depth limits reached while recusing':.<{padding}}{event_counts[6]}")
-    print(f"{'Min scores exceeded during simple calcs':.<{padding}}{event_counts[7]}")
-    print(f"{'Recusions called':.<{padding}}{event_counts[8]}")
-    print(f"{'Min scores exceeded during recursion':.<{padding}}{event_counts[9]}")
-    print(f"{'New min scores found after recursing':.<{padding}}{event_counts[10]}")
-    print(f"{'New min scores found without recursing':.<{padding}}{event_counts[11]}")
-    print(f"{'Leaf node calculations completed in full':.<{padding}}{event_counts[12]}")
-    print(f"{'Cache entries':.<{padding}}{cache_entries}")
-    print(f"{'Cache segments':.<{padding}}{len(cache.key_segments)}")
+    print(f"{'Cache hits':.<{padding}}{event_counts[0]:,}")
+    print(f"{'Entropy loop skips':.<{padding}}{event_counts[1]:,}")
+    print(f"{'Entropy loop exits':.<{padding}}{event_counts[2]:,}")
+    print(f"{'Winning patterns found':.<{padding}}{event_counts[3]:,}")
+    print(f"{'Low answer count patterns found':.<{padding}}{event_counts[4]:,}")
+    print(f"{'Recusions queued':.<{padding}}{event_counts[5]:,}")
+    print(f"{'Depth limits reached while recusing':.<{padding}}{event_counts[6]:,}")
+    print(f"{'Min scores exceeded during simple calcs':.<{padding}}{event_counts[7]:,}")
+    print(f"{'Recusions called':.<{padding}}{event_counts[8]:,}")
+    print(f"{'Min scores exceeded during recursion':.<{padding}}{event_counts[9]:,}")
+    print(f"{'New min scores found after recursing':.<{padding}}{event_counts[10]:,}")
+    print(f"{'New min scores found without recursing':.<{padding}}{event_counts[11]:,}")
+    print(f"{'Leaf node calculations completed in full':.<{padding}}{event_counts[12]:,}")
+    print(f"{'Cache entries':.<{padding}}{cache_entries:,}")
+    print(f"{'Cache segments':.<{padding}}{len(cache.key_segments):,}")
