@@ -3,24 +3,24 @@ from tests import *
 from core import *
 from engine import *
 
-def play_wordle(pattern_matrix, 
-                guesses, 
-                answers, 
-                nprune_global = 15, 
-                nprune_answers = 15, 
+def play_wordle(pattern_matrix: np.ndarray[np.uint8], 
+                guesses: np.ndarray[str], 
+                answers: np.ndarray[str], 
+                nprune_global: int = 15, 
+                nprune_answers: int = 15, 
                 starting_guess: str= "SALET", 
-                show_stats=True,
-                discord_printout=True,
-                answer_indicies=None):
+                show_stats: bool =True,
+                discord_printout: bool =True,
+                max_guesses: int = 6):
     
-    game_obj = wordle_game(pattern_matrix, guesses, answers, nprune_global, nprune_answers, answer_indicies)
+    game_obj = wordle_game(pattern_matrix, guesses, answers, nprune_global, nprune_answers)
     answers_remaining = len(answers)
 
     if discord_printout:
         game_number = input("Game number: ")
 
     # gameplay loop
-    for round_number in range(6):
+    for round_number in range(max_guesses):
         print(f"\n%%%%%%%%%% ROUND {round_number + 1} %%%%%%%%%%")
         print(f"Answers still remaining: {answers_remaining}\n")
 
