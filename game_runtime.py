@@ -43,7 +43,7 @@ def play_wordle(pattern_matrix: np.ndarray[np.uint8],
                 if word in set(game_obj.current_answer_set):
                     annotation = "[Possible Answer]"
                     
-                print(f"{i+1:>3}. {word.upper():<6} | Exected Guesses: {score:.4f} {annotation}")
+                print(f"{i+1:>3}. {word.upper():<6} | Expected Guesses: {score:.4f} {annotation}")
             
             print(f"\nCOMPUTER RECOMMENDATION: {recommendation.upper()}")
             
