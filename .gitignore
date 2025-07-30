@@ -23,3 +23,4 @@ wheels/
 # Allow base guesses and answers
 !valid_guesses.txt
 !original_answers.txt
+!past_answers.txt
