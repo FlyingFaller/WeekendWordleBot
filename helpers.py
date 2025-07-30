@@ -8,11 +8,14 @@ import wordfreq
 import nltk
 import hashlib
 from cache import Cache
+from bs4 import BeautifulSoup
 
 VALID_GUESSES_URL = "https://gist.github.com/dracos/dd0668f281e685bad51479e5acaadb93/raw/6bfa15d263d6d5b63840a8e5b64e04b382fdb079/valid-wordle-words.txt"
 VALID_GUESSES_FILE = "data/valid_guesses.txt"
 ORIGINAL_ANSWERS_URL = "https://gist.github.com/cfreshman/a03ef2cba789d8cf00c08f767e0fad7b/raw/c46f451920d5cf6326d550fb2d6abb1642717852/wordle-answers-alphabetical.txt"
 ORIGINAL_ANSWERS_FILE = "data/original_answers.txt"
+PAST_ANSWERS_FILE = 'data/past_answers.txt'
+PAST_ANSWERS_URL = 'https://www.rockpapershotgun.com/wordle-past-answers'
 ENGLISH_DICTIONARY_FILE = "data/en_US-large.txt"
 DEFAULT_PATTERN_MATRIX_FILE = "data/pattern_matrix.npy"
 GREEN = 2
@@ -95,19 +98,19 @@ def get_pattern_matrix(guesses:np.ndarray[str], answers: np.ndarray[str], savefi
         np.save(savefile, pattern_matrix)
     return pattern_matrix
 
-def get_words(savefile=VALID_GUESSES_FILE, url=VALID_GUESSES_URL, refetch=False, save=True) -> np.ndarray[str]:
+def get_words(savefile=VALID_GUESSES_FILE, url=VALID_GUESSES_URL, refetch=False, save=True, include_uppercase=False) -> np.ndarray[str]:
     """
     Retrieves the word list, filtering for lowercase a-z words.
     It fetches from a local file if it exists, otherwise from a URL.
     """
     # --- Path 1: Reading from local file ---
     if not refetch and os.path.exists(savefile):
-        print("Fetching and filtering words from file")
+        print("Fetching words from file")
         with open(savefile, 'r') as f:
             # Filter for non-empty, all-lowercase, a-z only words.
             words = [
-                line.strip() for line in f 
-                if line.strip() and line.strip().isascii() and line.strip().islower()
+                line.strip().lower() for line in f 
+                if line.strip() and line.strip().isascii() and (line.strip().islower() or include_uppercase)
             ]
             return np.array(words, dtype=str)
 
@@ -135,6 +138,71 @@ def get_words(savefile=VALID_GUESSES_FILE, url=VALID_GUESSES_URL, refetch=False,
     except requests.exceptions.RequestException as e:
         print(f"Error downloading the word list: {e}")
         return np.array([], dtype=str)
+    
+def scrape_words(savefile: str | None = PAST_ANSWERS_FILE, 
+                 url: str | None = PAST_ANSWERS_URL, 
+                 refetch: bool = False, 
+                 save: bool = True,
+                 header: tuple[str, str] = ('All Wordle answers', 'h2')) -> np.ndarray:
+    
+    if not refetch and os.path.exists(savefile):
+        print("Fetching words from file")
+        with open(savefile, 'r') as f:
+            # Filter for non-empty, all-lowercase, a-z only words.
+            words = [
+                line.strip().lower() for line in f 
+                if line.strip() and line.strip().isascii()
+            ]
+            return np.array(words, dtype=str)
+    
+    print("No word list exists or refetching requested, fetching from the web")     
+    if not url:
+        raise ValueError("A URL must be provided to scrape words when no valid savefile is found.")
+        
+    words = []
+    try:
+        # Send an HTTP GET request to the URL
+        response = requests.get(url, timeout=10)
+        response.raise_for_status() # Raise an exception for bad status codes
+
+        # Parse the HTML content
+        soup = BeautifulSoup(response.text, 'html.parser')
+
+        # Find the <h2> tag that acts as an anchor for our data
+        header_tag = soup.find(header[1], string=header[0])
+        if not header_tag:
+            print(f"Error: Could not find the {header[0]} header on the page.")
+            return np.array([], dtype=str)
+
+        # Find the <ul> tag immediately following the header
+        word_list_ul = header_tag.find_next_sibling('ul')
+        if not word_list_ul:
+            print("Error: Could not find the word list (<ul>) after the header.")
+            return np.array([], dtype=str)
+
+        # Extract all list items and validate them
+        list_items = word_list_ul.find_all('li')
+        raw_words = [li.get_text(strip=True).upper() for li in list_items if li.get_text(strip=True)]
+        words = [word.lower() for word in raw_words if len(word) == 5 and word.isalpha()]
+
+    except requests.exceptions.RequestException as e:
+        print(f"An error occurred during the web request: {e}")
+        return np.array([], dtype=str)
+    except Exception as e:
+        print(f"An unexpected error occurred during scraping: {e}")
+        return np.array([], dtype=str)
+
+    # --- Case 3: Save the scraped words to a file ---
+    if save and savefile and words:
+        print(f"Saving {len(words)} words to {savefile}")
+        try:
+            with open(savefile, 'w') as f:
+                for word in words:
+                    f.write(f"{word}\n")
+        except Exception as e:
+            print(f"Error saving words to file: {e}")
+            
+    return np.array(words, dtype=str)
 
 def get_word_freqs(words: np.ndarray[str]) -> np.ndarray[float]:
     frequencies = np.zeros(len(words))
@@ -241,25 +309,6 @@ def get_nltk_words(download=False) -> np.ndarray[str]:
 def filter_words_by_length(words, length) -> np.ndarray[str]:
     return np.array([word.lower() for word in words if len(word) == length])
 
-def filter_words_by_suffix(input_words, filter_words, suffixes=[]) -> np.ndarray[str]:
-    if len(suffixes) == 0: 
-        return input_words
-
-    words3 = filter_words_by_length(filter_words, 3)
-    words4 = filter_words_by_length(filter_words, 4)
-    masks = []
-    for suffix in suffixes:
-        match len(suffix):
-            case 1: filter_words = words4
-            case 2: filter_words = words3
-        mask = np.logical_and(
-            np.char.endswith(input_words, suffix.lower()), 
-            np.isin([s[:5-len(suffix)] for s in input_words], filter_words)
-            )
-        masks.append(mask)
-    composite_mask = np.logical_or.reduce(masks)
-    return input_words[~composite_mask]
-
 def filter_words_by_POS(input_words, tags=['NNS', 'VBD', 'VBN'], download=False) -> np.ndarray[str]:
     if download:
         nltk.download('averaged_perceptron_tagger')
@@ -273,6 +322,87 @@ def filter_words_by_POS(input_words, tags=['NNS', 'VBD', 'VBN'], download=False)
     filtered_list = [word for word, tag in tagged_words if tag not in exclude_tags]
 
     return np.array(filtered_list)
+
+def filter_words_by_suffix(
+    input_words: np.ndarray[str],
+    filter_words: np.ndarray[str],
+    suffixes: list[str | tuple[str, ...]] = []
+) -> np.ndarray[str]:
+    """
+    Filters 5-letter words that are shorter words with a suffix.
+
+    This function can handle simple suffix rules (e.g., 's') and complex
+    rules with exceptions (e.g., ('d', 'r')), where words ending in 'd'
+    are not filtered if the 'd' is preceded by an 'r'.
+
+    Args:
+        input_words: A NumPy array of 5-letter words to be filtered.
+        filter_words: A NumPy array of all valid words to check stems against.
+        suffixes: A list of rules. Each rule can be:
+            - A str (e.g., 'es') for a simple suffix.
+            - A tuple (e.g., ('s', 's')) where the first item is the
+              suffix and the following items are preceding character exceptions.
+
+    Returns:
+        A NumPy array of words with the filtered words removed.
+    """
+    if not suffixes:
+        return input_words
+
+    # Pre-filter the dictionary for 3 and 4-letter words for efficiency
+    words3 = filter_words_by_length(filter_words, 3)
+    words4 = filter_words_by_length(filter_words, 4)
+
+    masks_to_remove = []
+    for rule in suffixes:
+        # 1. Unpack the rule into suffix and exceptions
+        if isinstance(rule, tuple):
+            if not rule: continue # Skip empty tuple
+            suffix, *exceptions = rule
+        else:
+            suffix = rule
+            exceptions = []
+        
+        # Determine the stem length and which word list to use
+        stem_len = 5 - len(suffix)
+        if stem_len == 4:
+            valid_stems = words4
+        elif stem_len == 3:
+            valid_stems = words3
+        else:
+            continue # Skip suffixes of invalid length
+
+        # 2. Create a base mask for words that are candidates for removal
+        #    - Condition 1: Word ends with the suffix.
+        #    - Condition 2: The stem (word without suffix) is a valid word.
+        potential_removal_mask = np.logical_and(
+            np.char.endswith(input_words, suffix.lower()),
+            np.isin([word[:stem_len] for word in input_words], valid_stems)
+        )
+
+        # 3. If there are exceptions, create a mask to prevent removal
+        if exceptions:
+            # Get the character that precedes the suffix for each word
+            preceding_chars = np.array([word[-len(suffix)-1] for word in input_words])
+            # Create a mask that is True for words that meet the exception criteria
+            exception_mask = np.isin(preceding_chars, exceptions)
+            
+            # A word should be removed only if it's a potential candidate
+            # AND it does NOT meet the exception criteria.
+            final_mask_for_rule = np.logical_and(potential_removal_mask, ~exception_mask)
+        else:
+            # If no exceptions, all potential candidates are marked for removal
+            final_mask_for_rule = potential_removal_mask
+        
+        masks_to_remove.append(final_mask_for_rule)
+
+    # Combine all removal masks. A word is removed if it matches ANY rule.
+    if not masks_to_remove:
+        return input_words
+        
+    composite_removal_mask = np.logical_or.reduce(masks_to_remove)
+
+    return input_words[~composite_removal_mask]
 
 def print_stats(event_counts: np.ndarray[np.int64], cache: Cache):
     padding = 45
