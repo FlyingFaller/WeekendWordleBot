@@ -6,6 +6,7 @@ from sklearn.metrics import classification_report, accuracy_score
 from sklearn.preprocessing import StandardScaler
 import os
 import time
+from functools import wraps
 
 # --- REAL IMPLEMENTATION LIBRARIES ---
 # Make sure you have these installed: pip install numpy pandas scikit-learn wordfreq spacy
@@ -15,8 +16,23 @@ from wordfreq import word_frequency
 from sklearn.linear_model import LogisticRegression
 import lightgbm as lgb
 
-# --- 1. DATA LOADING & SETUP ---
+# --- 0. TIMING WRAPPER ---
+def timer(func):
+    """
+    A decorator that prints the execution time of the decorated function.
+    """
+    @wraps(func)
+    def wrapper_timer(*args, **kwargs):
+        start_time = time.perf_counter()
+        value = func(*args, **kwargs)
+        end_time = time.perf_counter()
+        run_time = end_time - start_time
+        print(f"\n'{func.__name__}' completed in {run_time:.4f} seconds.\n")
+        return value
+    return wrapper_timer
 
+# --- 1. DATA LOADING & SETUP ---
+@timer
 def load_spacy_model(model_name="en_core_web_lg"):
     """Loads a spaCy model, prompting the user to download it if not found."""
     try:
@@ -32,9 +48,10 @@ def load_spacy_model(model_name="en_core_web_lg"):
         except SystemExit:
             print(f"Failed to automatically download model.")
             print("Please download it manually using.")
-            print(f"pip install https://github.com/explosion/spacy-models/releases/download/{model_name}-3.4.0/{model_name}-3.4.0.tar.gz")
+            print(f"uv pip install https://github.com/explosion/spacy-models/releases/download/en_core_web_lg-3.8.0/en_core_web_lg-3.8.0-py3-none-any.whl")
             exit()
 
+@timer
 def load_word_list(filename):
     """Loads a list of words from a text file."""
     if not os.path.exists(filename):
@@ -44,34 +61,76 @@ def load_word_list(filename):
     return words
 
 # --- 2. FEATURE ENGINEERING WITH SPACY ---
-
-def get_features_for_word(word, nlp):
+@timer
+def get_features_for_words_vectorized(words, nlp):
     """
-    Gets a combined feature dictionary for a word using spaCy and wordfreq.
-    This function remains unchanged as requested.
+    Efficiently gets a combined feature DataFrame for a list of words using
+    spaCy's nlp.pipe for batch processing and pandas for vectorized operations.
+    This function returns raw, unweighted features.
     """
-    doc = nlp(word)
-    token = doc[0]
-    vector = token.vector
-    freq = word_frequency(word, 'en')
-    tag = token.tag_
-    is_plural = 1 if tag == 'NNS' else 0
-    is_past_tense = 1 if tag == 'VBD' else 0
-    is_adjective = 1 if tag == 'JJ' else 0
-    is_proper_noun = 1 if tag == 'NNP' else 0
-    is_gerund = 1 if tag == 'VBG' else 0
-    vowels = "aeiou"
-    vowel_count = sum(1 for char in word if char in vowels)
-    has_double_letter = 1 if any(word[i] == word[i+1] for i in range(len(word)-1)) else 0
-    return {
-        'vector': vector, 'frequency': freq, 'is_plural': is_plural,
-        'is_past_tense': is_past_tense, 'is_adjective': is_adjective,
-        'is_proper_noun': is_proper_noun, 'is_gerund': is_gerund,
-        'vowel_count': vowel_count, 'has_double_letter': has_double_letter
-    }
+    word_series = pd.Series(words)
+    docs = list(nlp.pipe(words))
+    
+    vectors = [doc[0].vector for doc in docs]
+    tags = [doc[0].tag_ for doc in docs]
+    tags_series = pd.Series(tags, index=word_series.index)
 
-# --- 3. MAIN SCRIPT LOGIC ---
+    features = pd.DataFrame(index=word_series.index)
+    
+    # A regular plural is tagged as a plural noun (NNS) AND ends in 's'.
+    features['is_regular_plural'] = ((tags_series == 'NNS') & (word_series.str.endswith('s'))).astype(int)
+    # An irregular plural is tagged as a plural noun (NNS) but does NOT end in 's'.
+    features['is_irregular_plural'] = ((tags_series == 'NNS') & (~word_series.str.endswith('s'))).astype(int)
 
+    features['frequency'] = [word_frequency(word, 'en') for word in words]
+    features['is_past_tense'] = (tags_series == 'VBD').astype(int)
+    features['is_adjective'] = (tags_series == 'JJ').astype(int)
+    features['is_proper_noun'] = (tags_series == 'NNP').astype(int)
+    features['is_gerund'] = (tags_series == 'VBG').astype(int)
+    features['vowel_count'] = word_series.str.count('[aeiou]').astype(int)
+    features['has_double_letter'] = word_series.str.contains(r'(.)\1').astype(int)
+    features['vector'] = vectors
+    
+    return features
+
+@timer
+def get_feature_matrix(df, use_vectors, explicit_features_list):
+    """Builds the feature matrix, conditionally including word vectors."""
+    explicit = df[explicit_features_list].values.astype(np.float64)
+    if use_vectors:
+        embedding = np.array(df['vector'].tolist())
+        return np.concatenate([embedding, explicit], axis=1)
+    else:
+        return explicit
+
+# --- 3. GET PREDICTIONS FROM MODEL ---
+@timer
+def get_predictions_for_word_list(words, model, nlp, scaler, use_vectors, explicit_features, feature_slice, feature_weights_vector):
+    """Efficiently gets predictions for a list of words, respecting feature configuration."""
+    print(f"Processing {len(words)} words for inference...")
+
+    # 1. Get raw features
+    inference_df = get_features_for_words_vectorized(words, nlp)
+    
+    # 2. Apply log transform to frequency if used (before scaling)
+    if 'frequency' in explicit_features:
+        inference_df['frequency'] = np.log1p(inference_df['frequency'])
+        
+    # 3. Build the feature matrix
+    X_inf = get_feature_matrix(inference_df, use_vectors, explicit_features)
+    
+    # 4. Scale the feature matrix
+    X_inf[:, feature_slice] = scaler.transform(X_inf[:, feature_slice])
+    
+    # 5. Apply the feature weights to the scaled features
+    X_inf[:, feature_slice] *= feature_weights_vector
+
+    # 6. Get probabilities
+    probabilities = model.predict_proba(X_inf)[:, 1]
+    return probabilities
+
+# --- 4. MAIN SCRIPT LOGIC ---
+@timer
 def main():
     """Main function to run the data preparation, true Spy EM PU training, and evaluation."""
     # --- Configuration ---
@@ -80,23 +139,34 @@ def main():
     VALID_GUESSES_FILE = "data/valid_guesses.txt"
     SPACY_MODEL_NAME = "en_core_web_lg"
     SPY_RATE = 0.15
-    MAX_ITERATIONS = 250 # Maximum number of EM iterations
-    CONVERGENCE_TOLERANCE = 1e-02 # Tolerance for convergence check
-
-    ACTIVE_EXPLICIT_FEATURES = [
-        'frequency', 
-        'is_plural', 
-        'is_past_tense', 
-        'is_adjective',
-        'is_proper_noun', 
-        'is_gerund', 
-        'vowel_count', 
-        'has_double_letter'
-    ]
+    MAX_ITERATIONS = 100
+    CONVERGENCE_TOLERANCE = 1e-1
     
-    n_explicit_features = len(ACTIVE_EXPLICIT_FEATURES)
+    USE_WORD_VECTORS = True
 
-    print(f"\n--- Using the following explicit features: {ACTIVE_EXPLICIT_FEATURES} ---")
+    EXPLICIT_FEATURE_WEIGHTS = {
+        'frequency': 1.0, 
+        'is_regular_plural': 1.0, 
+        'is_irregular_plural': 1.0,
+        'is_past_tense': 1.0, 
+        'is_adjective': 1.0,
+        'is_proper_noun': 1.0, 
+        'is_gerund': 1.0, 
+        'vowel_count': 1.0, 
+        'has_double_letter': 1.0
+    }
+    EXPLICIT_FEATURES = list(EXPLICIT_FEATURE_WEIGHTS.keys())
+    
+    # This array will be used to multiply the feature columns after scaling.
+    feature_weights_vector = np.array([EXPLICIT_FEATURE_WEIGHTS[feature] for feature in EXPLICIT_FEATURES])
+    
+    n_explicit_features = len(EXPLICIT_FEATURES)
+
+    print(f"\n--- Model Configuration ---")
+    print(f"Using Word Vectors: {USE_WORD_VECTORS}")
+    print(f"Using Explicit Features: {EXPLICIT_FEATURES}")
+    print(f"Feature Weights: {EXPLICIT_FEATURE_WEIGHTS}")
+    
     nlp = load_spacy_model(SPACY_MODEL_NAME)
 
     # --- Data Loading (P and U sets) ---
@@ -115,11 +185,13 @@ def main():
     unlabeled_df = pd.DataFrame(sorted(list(unlabeled_examples)), columns=['word'])
     
     all_words_df = pd.concat([positive_df.assign(type='P'), unlabeled_df.assign(type='U')], ignore_index=True)
-    feature_data = all_words_df['word'].apply(lambda word: get_features_for_word(word, nlp))
-    feature_df = pd.json_normalize(feature_data)
+    
+    # 1. Get raw features
+    feature_df = get_features_for_words_vectorized(all_words_df['word'].tolist(), nlp)
     all_words_df = pd.concat([all_words_df, feature_df], axis=1)
     
-    if 'frequency' in ACTIVE_EXPLICIT_FEATURES:
+    # 2. Apply log transform before scaling
+    if 'frequency' in EXPLICIT_FEATURES:
         all_words_df['frequency'] = np.log1p(all_words_df['frequency'])
 
     # --- Spy Selection ---
@@ -131,72 +203,53 @@ def main():
     reliable_positives_df = p_df.drop(spies_df.index)
 
     # --- Prepare feature matrices once, as they don't change ---
-    def get_feature_matrix(df):
-        explicit = df[ACTIVE_EXPLICIT_FEATURES].values
-        embedding = np.array(df['vector'].tolist())
-        return np.concatenate([embedding, explicit], axis=1)
+    X_reliable_positives = get_feature_matrix(reliable_positives_df, USE_WORD_VECTORS, EXPLICIT_FEATURES)
+    X_unlabeled = get_feature_matrix(u_df, USE_WORD_VECTORS, EXPLICIT_FEATURES)
+    X_spies = get_feature_matrix(spies_df, USE_WORD_VECTORS, EXPLICIT_FEATURES)
 
-    X_reliable_positives = get_feature_matrix(reliable_positives_df)
-    X_unlabeled = get_feature_matrix(u_df)
-    X_spies = get_feature_matrix(spies_df)
-
-    # <<< CHANGE START: The entire iterative process is replaced >>>
-    
+    # --- Iterative Spy EM Process ---
     print("\n--- Starting Iterative Spy EM Process ---")
-
-    # Initialize weights for unlabeled data as 0.5
     unlabeled_weights = np.full(len(X_unlabeled), 0.5)
-    final_model = None # Ensure we have a final model
+    final_model = None
     final_scaler = None
+
+    explicit_feature_slice = slice(-n_explicit_features, None) if USE_WORD_VECTORS else slice(None)
 
     for i in range(MAX_ITERATIONS):
         print(f"\n--- Iteration {i+1}/{MAX_ITERATIONS} ---")
 
-        # --- M-Step: Train model with current weights ---
-        # Combine reliable positives and the entire unlabeled set for training
         X_train_iter = np.concatenate([X_reliable_positives, X_unlabeled])
         y_train_iter = np.array([1] * len(X_reliable_positives) + [0] * len(X_unlabeled))
-
-        # Weights: 1.0 for reliable positives, calculated weights for unlabeled
         current_weights = np.concatenate([np.ones(len(X_reliable_positives)), unlabeled_weights])
 
-        # Fit scaler ONLY on the current training data's explicit features
-        scaler_iter = StandardScaler().fit(X_train_iter[:, -n_explicit_features:])
-        
-        # Scale a copy of the training data
+        # Step 1: Scale features
+        scaler_iter = StandardScaler().fit(X_train_iter[:, explicit_feature_slice])
         X_train_iter_scaled = X_train_iter.copy()
-        X_train_iter_scaled[:, -n_explicit_features:] = scaler_iter.transform(X_train_iter[:, -n_explicit_features:])
+        X_train_iter_scaled[:, explicit_feature_slice] = scaler_iter.transform(X_train_iter[:, explicit_feature_slice])
 
-        # Train with sample weights
-        # iter_model = SVC(kernel='linear', probability=True, random_state=42, class_weight=None) # Use sample_weight instead of class_weight
+        # Step 2: Apply weights to scaled features
+        X_train_iter_scaled[:, explicit_feature_slice] *= feature_weights_vector
 
-        # OPTION 1: Logistic Regression (More stable linear model)
         iter_model = LogisticRegression(solver='liblinear', random_state=42, class_weight=None)
-
-        # OPTION 2: LightGBM (Powerful non-linear model)
-        # iter_model = lgb.LGBMClassifier(random_state=42, n_estimators=100, verbose=0)
-
         iter_model.fit(X_train_iter_scaled, y_train_iter, sample_weight=current_weights)
 
-        # --- E-Step: Re-evaluate probabilities and weights ---
-        # Scale the spy and unlabeled features using the new scaler
+        # Apply same scaling and weighting to spy and unlabeled sets for prediction
         X_spies_scaled = X_spies.copy()
-        X_spies_scaled[:, -n_explicit_features:] = scaler_iter.transform(X_spies[:, -n_explicit_features:])
-        
+        X_spies_scaled[:, explicit_feature_slice] = scaler_iter.transform(X_spies[:, explicit_feature_slice])
+        X_spies_scaled[:, explicit_feature_slice] *= feature_weights_vector
+
         X_unlabeled_scaled = X_unlabeled.copy()
-        X_unlabeled_scaled[:, -n_explicit_features:] = scaler_iter.transform(X_unlabeled[:, -n_explicit_features:])
-        
-        # Calculate `c`, the average probability of a true positive (a spy)
+        X_unlabeled_scaled[:, explicit_feature_slice] = scaler_iter.transform(X_unlabeled[:, explicit_feature_slice])
+        X_unlabeled_scaled[:, explicit_feature_slice] *= feature_weights_vector
+
         spy_probs = iter_model.predict_proba(X_spies_scaled)[:, 1]
         c = np.mean(spy_probs)
         print(f"Average spy probability (c): {c:.4f}")
         
-        # Update weights for all unlabeled data
         unlabeled_probs = iter_model.predict_proba(X_unlabeled_scaled)[:, 1]
         new_unlabeled_weights = unlabeled_probs / c
-        new_unlabeled_weights = np.clip(new_unlabeled_weights, 0, 1) # Ensure weights are between 0 and 1
+        new_unlabeled_weights = np.clip(new_unlabeled_weights, 0, 1)
 
-        # Check for convergence
         weight_change = np.sum(np.abs(new_unlabeled_weights - unlabeled_weights))
         print(f"Total change in weights: {weight_change:.4f}")
         if weight_change < CONVERGENCE_TOLERANCE:
@@ -206,44 +259,24 @@ def main():
             break
         
         unlabeled_weights = new_unlabeled_weights
-        final_model = iter_model # Keep the last trained model
+        final_model = iter_model
         final_scaler = scaler_iter
-
-    else: # This 'else' belongs to the 'for' loop, runs if the loop finishes without 'break'
+    else:
         print("Reached max iterations. Using the model from the final iteration.")
 
-    # <<< CHANGE END >>>
-
-    # --- Evaluation & Inference (This part remains the same) ---
-    print("\n--- Evaluating Final Model ---")
+    # --- Evaluation & Inference ---
     print("\n--- Predicting Likeliness of New Words using Final PU Model ---")
-
-    def get_predictions_for_word_list(words, model, nlp, scaler, active_features):
-        """Efficiently gets predictions for a list of words."""
-        # This function is unchanged but now uses the final_model and final_scaler from the EM loop
-        print(f"Processing {len(words)} words...")
-        start_time = time.time()
-        
-        feature_list = [get_features_for_word(word, nlp) for word in words]
-        inference_df = pd.DataFrame(feature_list)
-        if 'frequency' in active_features:
-            inference_df['frequency'] = np.log1p(inference_df['frequency'])
-        
-        explicit_features_inf = inference_df[active_features].values
-        embedding_features_inf = np.array(inference_df['vector'].tolist())
-        X_inf = np.concatenate([embedding_features_inf, explicit_features_inf], axis=1)
-        X_inf[:, -len(active_features):] = scaler.transform(X_inf[:, -len(active_features):])
-        
-        probabilities = model.predict_proba(X_inf)[:, 1]
-        end_time = time.time()
-        print(f"Batch processing finished in {end_time - start_time:.2f} seconds.")
-        return probabilities
-
-    test_words = ['slate', 'crept', 'xylyl', 'audio', 'words', 'abaci', 'gofer', 'wordy', 'brass', 'board', 'tizzy', 'nervy', 'atria', 'taupe']
+    test_words = ['words', 'abaci', 'xylyl', 'slate', 'crept', 'audio', 'gofer', 
+                  'wordy', 'brass', 'board', 'tizzy', 'nervy', 'atria', 'taupe']
     if final_model and final_scaler:
-        test_probs = get_predictions_for_word_list(test_words, final_model, nlp, final_scaler, ACTIVE_EXPLICIT_FEATURES)
+        test_probs = get_predictions_for_word_list(test_words, final_model, nlp, final_scaler, 
+                                                   use_vectors=USE_WORD_VECTORS, 
+                                                   explicit_features=EXPLICIT_FEATURES,
+                                                   feature_slice=explicit_feature_slice,
+                                                   feature_weights_vector=feature_weights_vector)
+
         for word, prob in zip(test_words, test_probs):
-            print(f"The word '{word}' has a {prob:.2%} probability of being a Wordle answer.")
+            print(f"The word '{word}' has a {f'{prob:.2%}': >6} probability of being a Wordle answer.")
     else:
         print("Could not generate a final model. Aborting inference.")
 
