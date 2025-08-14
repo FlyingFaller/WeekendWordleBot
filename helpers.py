@@ -10,6 +10,7 @@ import hashlib
 from cache import Cache
 from bs4 import BeautifulSoup
 
+### DEFAULTS ###
 VALID_GUESSES_URL = "https://gist.github.com/dracos/dd0668f281e685bad51479e5acaadb93/raw/6bfa15d263d6d5b63840a8e5b64e04b382fdb079/valid-wordle-words.txt"
 VALID_GUESSES_FILE = "data/valid_guesses.txt"
 ORIGINAL_ANSWERS_URL = "https://gist.github.com/cfreshman/a03ef2cba789d8cf00c08f767e0fad7b/raw/c46f451920d5cf6326d550fb2d6abb1642717852/wordle-answers-alphabetical.txt"
@@ -22,6 +23,7 @@ GREEN = 2
 YELLOW = 1
 GRAY = 0
 
+### FUNCTIONS ###
 def get_pattern(guess: str, answer: str) -> list[int]:
     """Calculates the wordle pattern for guess word and answer word."""
     pattern = [GRAY]*5
