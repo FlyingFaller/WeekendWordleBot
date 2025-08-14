@@ -7,6 +7,7 @@ from sklearn.preprocessing import StandardScaler
 import os
 import time
 from functools import wraps
+from sklearn.neural_network import MLPClassifier
 
 # --- REAL IMPLEMENTATION LIBRARIES ---
 # Make sure you have these installed: pip install numpy pandas scikit-learn wordfreq spacy
@@ -48,7 +49,7 @@ def load_spacy_model(model_name="en_core_web_lg"):
         except SystemExit:
             print(f"Failed to automatically download model.")
             print("Please download it manually using.")
-            print(f"uv pip install https://github.com/explosion/spacy-models/releases/download/en_core_web_lg-3.8.0/en_core_web_lg-3.8.0-py3-none-any.whl")
+            print(f"uv add https://github.com/explosion/spacy-models/releases/download/en_core_web_lg-3.8.0/en_core_web_lg-3.8.0-py3-none-any.whl")
             exit()
 
 @timer
@@ -88,7 +89,8 @@ def get_features_for_words_vectorized(words, nlp):
     features['is_proper_noun'] = (tags_series == 'NNP').astype(int)
     features['is_gerund'] = (tags_series == 'VBG').astype(int)
     features['vowel_count'] = word_series.str.count('[aeiou]').astype(int)
-    features['has_double_letter'] = word_series.str.contains(r'(.)\1').astype(int)
+    # features['has_double_letter'] = word_series.str.contains(r'(.)\1', regex=True).astype(int)
+    features['has_double_letter'] = (word_series.str.findall(r'(.)\1').str.len() > 0).astype(int)
     features['vector'] = vectors
     
     return features
@@ -129,6 +131,62 @@ def get_predictions_for_word_list(words, model, nlp, scaler, use_vectors, explic
     probabilities = model.predict_proba(X_inf)[:, 1]
     return probabilities
 
+@timer
+def evaluate_model(model, scaler, nlp, all_valid_words: set, known_positives: set, config):
+    """
+    Evaluates the final model's performance on the entire dataset.
+    """
+    print("\n--- Final Model Evaluation ---")
+    
+    # 1. Get predictions for all possible words
+    all_words_list = sorted(list(all_valid_words))
+    probabilities = get_predictions_for_word_list(
+        all_words_list, model, nlp, scaler,
+        use_vectors=config['use_vectors'],
+        explicit_features=config['explicit_features'],
+        feature_slice=config['feature_slice'],
+        feature_weights_vector=config['feature_weights_vector']
+    )
+    
+    # 2. Create a DataFrame with results
+    results_df = pd.DataFrame({'word': all_words_list, 'probability': probabilities})
+    
+    # 3. Identify predicted positives based on the threshold
+    threshold = config['prediction_threshold']
+    predicted_positives = set(results_df[results_df['probability'] >= threshold]['word'])
+    
+    # 4. Calculate metrics
+    true_positives = predicted_positives.intersection(known_positives) # all predicted positives in known positives
+    false_negatives = known_positives.difference(predicted_positives) # all known positives not in predicition 
+    
+    recall = len(true_positives) / len(known_positives) if len(known_positives) > 0 else 0
+    precision = len(true_positives) / len(predicted_positives) if len(predicted_positives) > 0 else 0
+    
+    # 5. Print summary
+    print(f"\nEvaluation with probability threshold >= {threshold:.2%}")
+    print("-" * 40)
+    print(f"{'Total Predictions Made:': <39}{len(predicted_positives): >5}")
+    print(f"{'Total Known Positives:': <39}{len(known_positives): >5}")
+    print(f"{'Identified Positives (True Positives):': <39}{len(true_positives): >5}")
+    print(f"{'Missed Positives (False Negatives):': <39}{len(false_negatives): >5}")
+    print("-" * 40)
+    print(f"{'Recall on Known Positives:': <48}{f'{recall:.2%}': >7}")
+    print(f"{'Positive Predictive Value (PPV) on Labeled Set:': <48}{f'{precision:.2%}': >7}")
+    print("(Known Answer Density)")
+    print("-" * 40)
+    
+    print("\n--- False Negatives (Words the Model Missed) ---")
+    fn_df = results_df[results_df['word'].isin(false_negatives)]
+    formatted_fns = [f"{row.word} ({row.probability:.1%})" for row in fn_df.sort_values('word').itertuples()]
+    words_per_row = 5
+    for i in range(0, len(formatted_fns), words_per_row):
+        chunk = formatted_fns[i:i + words_per_row]
+        print(", ".join(chunk))
+    if len(formatted_fns) <= 0:
+        print('NONE')
+
+    return results_df
+
 # --- 4. MAIN SCRIPT LOGIC ---
 @timer
 def main():
@@ -140,7 +198,7 @@ def main():
     SPACY_MODEL_NAME = "en_core_web_lg"
     SPY_RATE = 0.15
     MAX_ITERATIONS = 100
-    CONVERGENCE_TOLERANCE = 1e-1
+    CONVERGENCE_TOLERANCE = 1e-2
     
     USE_WORD_VECTORS = True
 
@@ -230,7 +288,17 @@ def main():
         # Step 2: Apply weights to scaled features
         X_train_iter_scaled[:, explicit_feature_slice] *= feature_weights_vector
 
+        ### THIS IS THE MODEL SELECTION HERE ###
         iter_model = LogisticRegression(solver='liblinear', random_state=42, class_weight=None)
+        # iter_model = MLPClassifier(
+        #     hidden_layer_sizes=(2,),  # Two hidden layers with two neurons each
+        #     activation='relu',          # Use the ReLU activation function for hidden layers
+        #     solver='adam',              # A standard, robust optimizer
+        #     max_iter=500,               # Increase iterations as NNs can take longer to converge
+        #     random_state=42
+        # )
+
+        ### TRAIN THE MODEL ###
         iter_model.fit(X_train_iter_scaled, y_train_iter, sample_weight=current_weights)
 
         # Apply same scaling and weighting to spy and unlabeled sets for prediction
@@ -267,8 +335,11 @@ def main():
     # --- Evaluation & Inference ---
     print("\n--- Predicting Likeliness of New Words using Final PU Model ---")
     test_words = ['words', 'abaci', 'xylyl', 'slate', 'crept', 'audio', 'gofer', 
-                  'wordy', 'brass', 'board', 'tizzy', 'nervy', 'atria', 'taupe']
+                  'wordy', 'brass', 'board', 'tizzy', 'nervy', 'atria', 'taupe',
+                  'omega', 'assay', 'frill', 'banjo', 'daunt', 'lumpy', 'rigid',
+                  'stork', 'groan', 'coral', 'imbue', 'nasal', 'minty', 'south']
     if final_model and final_scaler:
+        # Test on some specific words
         test_probs = get_predictions_for_word_list(test_words, final_model, nlp, final_scaler, 
                                                    use_vectors=USE_WORD_VECTORS, 
                                                    explicit_features=EXPLICIT_FEATURES,
@@ -277,6 +348,21 @@ def main():
 
         for word, prob in zip(test_words, test_probs):
             print(f"The word '{word}' has a {f'{prob:.2%}': >6} probability of being a Wordle answer.")
+
+        # Evaluation of model
+        eval_config = {
+            'use_vectors': USE_WORD_VECTORS,
+            'explicit_features': EXPLICIT_FEATURES,
+            'feature_slice': explicit_feature_slice,
+            'feature_weights_vector': feature_weights_vector,
+            'prediction_threshold': 0.07
+        }
+        positive_examples.update({'slate', 'crept', 'audio', 'gofer', 'wordy', 
+                                  'brass', 'board', 'tizzy', 'nervy', 'atria', 
+                                  'taupe', 'omega', 'assay', 'frill', 'banjo', 
+                                  'daunt', 'lumpy', 'rigid', 'stork', 'groan', 
+                                  'coral', 'imbue', 'nasal', 'minty', 'south'})
+        evaluate_model(final_model, final_scaler, nlp, all_guesses, positive_examples, eval_config)
     else:
         print("Could not generate a final model. Aborting inference.")
 
