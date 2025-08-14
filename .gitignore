@@ -12,6 +12,7 @@ wheels/
 # Large files that can be recomputed
 *.npy
 *.txt
+*.pkl
 
 # Allow dictionary files
 !2of12.txt
@@ -24,3 +25,6 @@ wheels/
 !valid_guesses.txt
 !original_answers.txt
 !past_answers.txt
+
+# Allow model files which are small
+!wordle_classifier.pkl
