@@ -76,8 +76,8 @@ def recursive_engine(pattern_matrix: np.ndarray,
     ### EVALUTE CANDIDATE GUESSES ###
     candidate_idxs = np.argsort(entropy_vals)[-nprune:]
     min_partial_score = np.inf
-    for i in range(nprune):
-        partial_score = 0.0
+    for i in range(len(candidate_idxs)):
+        partial_score = 0
         children = []
 
         candidate_idx = candidate_idxs[i]
@@ -90,13 +90,14 @@ def recursive_engine(pattern_matrix: np.ndarray,
             elif count < 3:
                 event_counter[4] += 1
                 partial_score += 2*count - 1 # px * (1 + (count-1)/count) = count/nanswers*(1 + (count-1)/count) = (1/nanswers)*(2*count - 1)
+
             elif current_depth < max_depth:
                 event_counter[5] += 1
                 child_ans_idxs = ans_idxs[pattern_row == pattern] # Remove non-matching answers from solution set
                 children.append((child_ans_idxs, count))
             else:
                 event_counter[6] += 1
-                partial_score += 1000 # prohibitively large number
+                partial_score += 100_000_000 # prohibitively large number
 
             if partial_score >= min_partial_score:
                 # this candidate is bad enough we can discontinue the entire search line
@@ -109,14 +110,23 @@ def recursive_engine(pattern_matrix: np.ndarray,
                 for child in children:
                     event_counter[8] += 1
                     child_ans_idxs, count = child
-                    partial_score += count*recursive_engine(pattern_matrix, 
-                                                            nguesses, 
-                                                            child_ans_idxs, 
-                                                            nprune, 
-                                                            max_depth, 
-                                                            current_depth+1, 
-                                                            cache, 
-                                                            event_counter)
+                    # partial_score += count*recursive_engine(pattern_matrix, 
+                    #                                         nguesses, 
+                    #                                         child_ans_idxs, 
+                    #                                         nprune, 
+                    #                                         max_depth, 
+                    #                                         current_depth+1, 
+                    #                                         cache, 
+                    #                                         event_counter)
+
+                    partial_score += recursive_engine(pattern_matrix, 
+                                                      nguesses, 
+                                                      child_ans_idxs, 
+                                                      nprune, 
+                                                      max_depth, 
+                                                      current_depth+1, 
+                                                      cache, 
+                                                      event_counter)
                     if partial_score >= min_partial_score:
                         # recursion has increased the score enough that the word is no longer the best
                         event_counter[9] += 1
@@ -130,7 +140,8 @@ def recursive_engine(pattern_matrix: np.ndarray,
                 min_partial_score = partial_score
 
     event_counter[12] += 1
-    min_score = min_partial_score/nanswers + 1
+    # min_score = min_partial_score/nanswers + 1
+    min_score = min_partial_score + nanswers
     cache.set(key, min_score)
     return min_score
 
@@ -184,12 +195,13 @@ def recursive_root(pattern_matrix: np.ndarray[int],
         candidate_idxs = gss_candidate_idxs
 
     ncandidates = len(candidate_idxs)
-    candidate_scores = np.zeros(ncandidates, dtype=np.float64) # probable number of answers left after depth guesses
+    # candidate_scores = np.zeros(ncandidates, dtype=np.float64) # probable number of answers left after depth guesses
+    candidate_scores = np.zeros(ncandidates, dtype=np.uint64)
 
     ### PARALLEL SEARCH ###
     local_event_counters = np.zeros((nthreads, NEVENT_TYPES), dtype=np.int64)
     for i in prange(0, ncandidates):
-        partial_score = 0.0
+        partial_score = 0
         local_event_counter = local_event_counters[get_thread_id()]
         candidate_idx = candidate_idxs[i]
         pattern_row = pattern_columns[candidate_idx]
@@ -204,16 +216,24 @@ def recursive_root(pattern_matrix: np.ndarray[int],
             else:
                 local_event_counter[8] += 1
                 child_ans_idxs = ans_idxs[pattern_row == pattern] # Remove non-matching answers from solution set
-                partial_score += count*recursive_engine(pattern_matrix, 
-                                                        nguesses, 
-                                                        child_ans_idxs, 
-                                                        nprune_global, 
-                                                        max_depth, 
-                                                        1, 
-                                                        cache, 
-                                                        local_event_counter)
-                
-        candidate_scores[i] = partial_score/nanswers + 1
+                # partial_score += count*recursive_engine(pattern_matrix, 
+                #                                         nguesses, 
+                #                                         child_ans_idxs, 
+                #                                         nprune_global, 
+                #                                         max_depth, 
+                #                                         1, 
+                #                                         cache, 
+                #                                         local_event_counter)
+                partial_score += recursive_engine(pattern_matrix, 
+                                                  nguesses, 
+                                                  child_ans_idxs, 
+                                                  nprune_global, 
+                                                  max_depth, 
+                                                  1, 
+                                                  cache, 
+                                                  local_event_counter)
+        # candidate_scores[i] = partial_score/nanswers + 1
+        candidate_scores[i] = partial_score + nanswers
 
     for local_event_counter in local_event_counters:
         global_event_counter += local_event_counter
