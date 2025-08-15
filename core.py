@@ -24,7 +24,8 @@ class wordle_game:
                  nprune_global: int, 
                  nprune_answers: int, 
                  max_depth: int = 6, 
-                 segment_capacity: int = 100_000): # Still need to get a better automatic estimate for this
+                 segment_capacity: int = 100_000,
+                 sort_func: callable = None): # Still need to get a better automatic estimate for this
     
         if not set(answers).issubset(set(guesses)):
             raise Exception(f'Guess set must completely contain all answers in answer set.')
@@ -63,14 +64,19 @@ class wordle_game:
         self.solved = False
         self.failed = False
 
+        if sort_func is None:
+            self.sort_func = lambda word: wordfreq.word_frequency(word, 'en')
+        else:
+            self.sort_func = sort_func
+
     def _sort_key(self, item):
         word = item[0]
         score = item[1]
         score_key = score
         answer_key = word not in set(self.current_answer_set)
-        frequency_key = -wordfreq.word_frequency(word, 'en')
+        func_key = -self.sort_func(word)
 
-        return (score_key, answer_key, frequency_key)
+        return (score_key, answer_key, func_key)
         
     def validate_guess(self, guess: str) -> tuple[str, int]:
         """Checks if a word is valid. Raises InvalidWordError if not."""
