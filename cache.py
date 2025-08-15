@@ -58,7 +58,8 @@ class Cache:
     full_threshold: float64
     growth_lock: AtomicInt
     key_segments: ListArrUint64
-    value_segments: ListArrFloat64
+    # value_segments: ListArrFloat64
+    value_segments: ListArrUint64
     fill_count_segments: typing.List[AtomicInt]
 
     def __init__(self, segment_capacity):
@@ -67,9 +68,11 @@ class Cache:
         self.growth_lock = AtomicInt(0)
 
         self.key_segments = ListObj.empty_list(uint64[:])
-        self.value_segments = ListObj.empty_list(float64[:])
+        # self.value_segments = ListObj.empty_list(float64[:])
+        self.value_segments = ListObj.empty_list(uint64[:])
         self.key_segments.append(np.full(segment_capacity, EMPTY_KEY, dtype=np.uint64))
-        self.value_segments.append(np.zeros(segment_capacity, dtype=np.float64))
+        # self.value_segments.append(np.zeros(segment_capacity, dtype=np.float64))
+        self.value_segments.append(np.zeros(segment_capacity, dtype=np.uint64))
 
         fill_count_list: list = ListObj()
         fill_count_list.append(AtomicInt(0))
@@ -90,7 +93,8 @@ class Cache:
         """Appends new arrays to each list to create a new logical segment."""
 
         new_fill_count = AtomicInt(0)
-        new_values = np.zeros(self.segment_capacity, dtype=np.float64)
+        # new_values = np.zeros(self.segment_capacity, dtype=np.float64)
+        new_values = np.zeros(self.segment_capacity, dtype=np.uint64)
         new_keys = np.full(self.segment_capacity, EMPTY_KEY, dtype=np.uint64)
         
         self.fill_count_segments.append(new_fill_count)
