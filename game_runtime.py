@@ -11,9 +11,10 @@ def play_wordle(pattern_matrix: np.ndarray[np.uint8],
                 starting_guess: str= "SALET", 
                 show_stats: bool =True,
                 discord_printout: bool =True,
-                max_guesses: int = 6):
+                max_guesses: int = 6,
+                sort_func: callable = None):
     
-    game_obj = wordle_game(pattern_matrix, guesses, answers, nprune_global, nprune_answers)
+    game_obj = wordle_game(pattern_matrix, guesses, answers, nprune_global, nprune_answers, sort_func = sort_func)
     answers_remaining = len(answers)
 
     if discord_printout:
@@ -36,14 +37,16 @@ def play_wordle(pattern_matrix: np.ndarray[np.uint8],
             if show_stats:
                 cache = game_obj.cache
                 print_stats(event_counts, cache)
-        
-            print(f"\nThe best {len(sorted_results)} words:")
+
+            max_len = len(str(sorted_results[-1][1]))
+            print(f"\nThe best {len(sorted_results)} words are...")
+            print(f"\n###. WORDS | Avrg.  | Total")
             for i, (word, score) in enumerate(sorted_results):
                 annotation = ""
                 if word in set(game_obj.current_answer_set):
                     annotation = "[Possible Answer]"
                     
-                print(f"{i+1:>3}. {word.upper():<6} | Expected Guesses: {score:.4f} {annotation}")
+                print(f"{i+1:>3}. {word.upper():<5} | {score/answers_remaining:.4f} | {score: <{max_len}} {annotation}")
             
             print(f"\nCOMPUTER RECOMMENDATION: {recommendation.upper()}")
             
