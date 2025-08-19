@@ -59,10 +59,10 @@ if __name__ == "__main__":
         pattern_matrix, 
         guesses, 
         reduced_answers, 
-        nprune_global=10, 
-        nprune_answers=10, 
+        nprune_global=50, 
+        nprune_answers=50, 
         starting_guess="SALET", 
         show_stats=True, 
-        discord_printout=False,
+        discord_printout=True,
         max_guesses = 10,
         sort_func=prediction_func)
