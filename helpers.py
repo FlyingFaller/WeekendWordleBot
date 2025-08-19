@@ -9,6 +9,9 @@ import nltk
 import hashlib
 from cache import Cache
 from bs4 import BeautifulSoup
+from numba.types import int64
+from numba import njit
+from numba.experimental import jitclass
 
 ### DEFAULTS ###
 VALID_GUESSES_URL = "https://gist.github.com/dracos/dd0668f281e685bad51479e5acaadb93/raw/6bfa15d263d6d5b63840a8e5b64e04b382fdb079/valid-wordle-words.txt"
@@ -22,6 +25,22 @@ DEFAULT_PATTERN_MATRIX_FILE = "data/pattern_matrix.npy"
 GREEN = 2
 YELLOW = 1
 GRAY = 0
+
+EVENTS = [
+    ('cache_hits', 'Cache hits'),
+    ('entropy_skips', 'Entropy loop skips'),
+    ('entropy_exits', 'Entropy loop exits'),
+    ('winning_patterns', 'Winning patterns found'),
+    ('low_pattern_counts', 'Low answer count patterns found'),
+    ('recursions_queued', 'Recursions queued'),
+    ('depth_limit', 'Depth limits reached while recursing'),
+    ('mins_exceeded_simple', 'Min scores exceeded during simple calcs'),
+    ('recursions_called', 'Recursions called'),
+    ('mins_exceeded_recurse', 'Min scores exceeded during recursion'),
+    ('mins_after_recurse', 'New min scores found after recursing'),
+    ('mins_without_recurse', 'New min scores found without recursing'),
+    ('leaf_calcs_complete', 'Leaf node calculations completed in full'),
+]
 
 ### FUNCTIONS ###
 def get_pattern(guess: str, answer: str) -> list[int]:
@@ -406,22 +425,69 @@ def filter_words_by_suffix(
 
     return input_words[~composite_removal_mask]
 
-def print_stats(event_counts: np.ndarray[np.int64], cache: Cache):
+def print_stats(event_counts, cache: Cache):
+    """
+    Prints formatted statistics from an EventCounter object.
+    It directly uses the EVENTS list defined in this same module.
+    """
     padding = 45
     cache_entries = sum([atomic_int.value[0] for atomic_int in cache.fill_count_segments])
+
     print(f"\nStats:")
-    print(f"{'Cache hits':.<{padding}}{event_counts[0]:,}")
-    print(f"{'Entropy loop skips':.<{padding}}{event_counts[1]:,}")
-    print(f"{'Entropy loop exits':.<{padding}}{event_counts[2]:,}")
-    print(f"{'Winning patterns found':.<{padding}}{event_counts[3]:,}")
-    print(f"{'Low answer count patterns found':.<{padding}}{event_counts[4]:,}")
-    print(f"{'Recusions queued':.<{padding}}{event_counts[5]:,}")
-    print(f"{'Depth limits reached while recusing':.<{padding}}{event_counts[6]:,}")
-    print(f"{'Min scores exceeded during simple calcs':.<{padding}}{event_counts[7]:,}")
-    print(f"{'Recusions called':.<{padding}}{event_counts[8]:,}")
-    print(f"{'Min scores exceeded during recursion':.<{padding}}{event_counts[9]:,}")
-    print(f"{'New min scores found after recursing':.<{padding}}{event_counts[10]:,}")
-    print(f"{'New min scores found without recursing':.<{padding}}{event_counts[11]:,}")
-    print(f"{'Leaf node calculations completed in full':.<{padding}}{event_counts[12]:,}")
+    for name, description in EVENTS:
+        value = getattr(event_counts, name)
+        print(f"{description:.<{padding}}{value:,}")
+
     print(f"{'Cache entries':.<{padding}}{cache_entries:,}")
     print(f"{'Cache segments':.<{padding}}{len(cache.key_segments):,}")
+
+def build_event_counter_class():
+    """
+    Dynamically builds the EventCounter jitclass as a string and executes it.
+    This provides the maintainability of being driven by the EVENTS list while
+    satisfying Numba's need for a static class definition.
+    """
+    # Start the class definition string
+    class_def = """
+@jitclass([('counts', int64[:])])
+class EventCounter:
+    def __init__(self):
+        self.counts = np.zeros(NEVENTS, dtype=np.int64)
+
+    def merge(self, other_counters):
+        for counter in other_counters:
+            self.counts += counter.counts
+
+    @staticmethod
+    def spawn(n: int):
+        lst = []
+        for _ in range(n):
+            lst.append(EventCounter())
+        return lst     
+"""
+
+    # Add incrementer methods from the EVENTS list
+    for i, (name, _) in enumerate(EVENTS):
+        class_def += f"""
+    def inc_{name}(self):
+        self.counts[{i}] += 1
+"""
+
+    # Add getter properties from the EVENTS list
+    for i, (name, _) in enumerate(EVENTS):
+        class_def += f"""
+    @property
+    def {name}(self):
+        return self.counts[{i}]
+"""
+    return class_def
+
+event_counter_class_string = build_event_counter_class()
+exec_scope = {
+    'jitclass': jitclass,
+    'int64': int64,
+    'np': np,
+    'NEVENTS': len(EVENTS)
+}
+exec(event_counter_class_string, exec_scope)
+EventCounter = exec_scope['EventCounter']
