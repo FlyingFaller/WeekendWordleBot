@@ -3,6 +3,7 @@ import requests
 import numpy as np
 from tqdm import tqdm
 import multiprocessing
+import threading
 from numba import njit
 import wordfreq
 import nltk
@@ -12,6 +13,7 @@ from bs4 import BeautifulSoup
 from numba.types import int64
 from numba import njit
 from numba.experimental import jitclass
+import time
 
 ### DEFAULTS ###
 VALID_GUESSES_URL = "https://gist.github.com/dracos/dd0668f281e685bad51479e5acaadb93/raw/6bfa15d263d6d5b63840a8e5b64e04b382fdb079/valid-wordle-words.txt"
@@ -491,3 +493,32 @@ exec_scope = {
 }
 exec(event_counter_class_string, exec_scope)
 EventCounter = exec_scope['EventCounter']
+
+def solver_progress_bar(progress_array: np.ndarray[np.float64],
+                        pbar: tqdm,
+                        stop_event: threading.Event):
+    """
+    Monitors the progress array and updates the tqdm bar.
+    Exits when stop_event is set.
+    """
+    while not stop_event.is_set():
+        total = progress_array[-1]
+        
+        if total > 0:
+            if pbar.total != total:
+                pbar.total = total
+
+            current_count = np.sum(progress_array[:-1])
+            current_count = min(current_count, total)
+            pbar.n = current_count
+            pbar.refresh()
+        
+        time.sleep(0.25)
+
+    # Ensure the bar is at 100% when the process is finished.
+    total = progress_array[-1] if progress_array[-1] > 0 else 1.0
+    if pbar.total != total:
+        pbar.total = total
+    pbar.n = total
+    pbar.refresh()
+    pbar.close()

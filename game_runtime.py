@@ -27,7 +27,20 @@ def play_wordle(pattern_matrix: np.ndarray[np.uint8],
 
         # Get next-guess recommendations
         if round_number != 0 or starting_guess is None:
-            results = game_obj.compute_next_guess()
+            nthreads = get_num_threads()
+            progress_array = np.zeros(nthreads + 1, dtype=np.float64)
+            progress_format = '{l_bar}{bar}| {n:.1f}/{total_fmt} [{elapsed}<{remaining}]'
+            pbar = tqdm(total=0, desc="Evaluating candidates", bar_format=progress_format)
+            stop_event = threading.Event() # Create the event
+            monitor = threading.Thread(target=solver_progress_bar, 
+                                       args=(progress_array, pbar, stop_event)) # Pass it here
+            monitor.start()
+            try:
+                results = game_obj.compute_next_guess(progress_array)
+            finally:
+                stop_event.set() # Signal the monitor thread to exit its loop
+                monitor.join()   # Wait for the monitor thread to terminate cleanly
+
             recommendation = results['recommendation']
             sorted_results = results['sorted_results']
             solve_time = results['solve_time']

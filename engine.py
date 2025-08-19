@@ -123,7 +123,8 @@ def recursive_root(pattern_matrix: np.ndarray[int],
                    nprune_global: int, 
                    nprune_answers: int,
                    max_depth: int,
-                   cache: Cache) -> tuple[np.ndarray[str], np.ndarray[float], np.ndarray[int]]:
+                   cache: Cache,
+                   progress_array: np.ndarray[np.float64] | None = None) -> tuple[np.ndarray[str], np.ndarray[float], np.ndarray[int]]:
     """This function should return the best words to play and a bunch of info"""
 
     ### SETUP ###
@@ -131,6 +132,8 @@ def recursive_root(pattern_matrix: np.ndarray[int],
     nguesses = len(guesses)
     nthreads = get_num_threads()
     global_event_counter = EventCounter()
+    if progress_array is None:
+        progress_array = np.zeros(nthreads+1, dtype=np.float64)
 
     ### COMPILE NEXT GUESSES ###
     pattern_data = []
@@ -166,15 +169,22 @@ def recursive_root(pattern_matrix: np.ndarray[int],
 
     ncandidates = len(candidate_idxs)
     candidate_scores = np.zeros(ncandidates, dtype=np.uint64)
+    progress_array[-1] = ncandidates
 
     ### PARALLEL SEARCH ###
     local_event_counters = global_event_counter.spawn(nthreads)
     for i in prange(0, ncandidates):
+        thread_id = get_thread_id()
+
         partial_score = 0
-        local_event_counter = local_event_counters[get_thread_id()]
+        local_event_counter = local_event_counters[thread_id]
         candidate_idx = candidate_idxs[i]
         pattern_row = pattern_columns[candidate_idx]
         patterns, pcounts = pattern_data[candidate_idx]
+
+        num_patterns = len(patterns)
+        increment = 1.0 / num_patterns if num_patterns > 0 else 0.0
+
         for (pattern, count) in zip(patterns, pcounts): 
             if pattern == 242:
                 # if this pattern solves the game we don't need additional guesses...
@@ -193,6 +203,10 @@ def recursive_root(pattern_matrix: np.ndarray[int],
                                                   1, 
                                                   cache, 
                                                   local_event_counter)
+            progress_array[thread_id] += increment
+        if num_patterns == 0:
+            progress_array[thread_id] += 1.0
+
         candidate_scores[i] = partial_score + nanswers
 
     global_event_counter.merge(local_event_counters)

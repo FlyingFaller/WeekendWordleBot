@@ -188,19 +188,19 @@ class wordle_game:
         
         return ret_str
 
-    def compute_next_guess(self) -> dict:
+    def compute_next_guess(self, progress_array: np.ndarray[np.float64] = None) -> dict:
         current_ans_idxs = self.ans_idxs[-1]
         if self.solved or len(current_ans_idxs) == 1:
             solution = self.answer_set[current_ans_idxs[0]]
             return {'recommendation': solution, 
                     'sorted_results': [(solution, 1)], 
                     'solve_time': 0.0, 
-                    'event_counts': np.zeros(NEVENT_TYPES, dtype=np.int64)}
+                    'event_counts': EventCounter()}
         if self.failed:
             return {'recommendation': None, 
                     'sorted_results': [], 
                     'solve_time': 0.0, 
-                    'event_counts': np.zeros(NEVENT_TYPES, dtype=np.int64)}
+                    'event_counts': EventCounter()}
         
         start_time = time.time()
         recursive_results = recursive_root(self.pattern_matrix, 
@@ -210,7 +210,8 @@ class wordle_game:
                                            self.nprune_global, 
                                            self.nprune_answers,
                                            self.max_depth,
-                                           self.cache)
+                                           self.cache,
+                                           progress_array)
         words, scores, event_counter = recursive_results
         end_time = time.time()
 
