@@ -2,6 +2,7 @@ from helpers import *
 from tests import *
 from core import *
 from engine import *
+from typing import Callable
 
 def play_wordle(pattern_matrix: np.ndarray[np.uint8], 
                 guesses: np.ndarray[str], 
@@ -12,7 +13,7 @@ def play_wordle(pattern_matrix: np.ndarray[np.uint8],
                 show_stats: bool =True,
                 discord_printout: bool =True,
                 max_guesses: int = 6,
-                sort_func: callable = None):
+                sort_func: Callable = None):
     
     game_obj = wordle_game(pattern_matrix, guesses, answers, nprune_global, nprune_answers, sort_func = sort_func)
     answers_remaining = len(answers)

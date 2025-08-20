@@ -6,6 +6,7 @@ import pandas as pd
 from sklearn.preprocessing import StandardScaler
 from sklearn.linear_model import LogisticRegression
 import pickle
+from typing import Callable
 
 DEFAULT_CONFIG = {
     'use_vectors': True,
@@ -242,7 +243,7 @@ def load_classifier(
     positive_words: np.ndarray = None,
     all_words: np.ndarray = None,
     config: dict = DEFAULT_CONFIG
-    ) -> callable:
+    ) -> Callable:
     """
     Loads a pre-trained classifier or retrains one if needed.
     Returns a self-contained prediction function.
@@ -311,7 +312,7 @@ def load_classifier(
     return predict_word_probabilities
 
 def filter_words_by_probability(
-    prediction_function: callable,
+    prediction_function: Callable,
     words_to_filter: np.ndarray,
     threshold: float = 0.07
     ) -> np.ndarray:
