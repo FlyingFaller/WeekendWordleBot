@@ -433,15 +433,14 @@ def print_stats(event_counts, cache: Cache):
     It directly uses the EVENTS list defined in this same module.
     """
     padding = 45
-    cache_entries = sum([atomic_int.value[0] for atomic_int in cache.fill_count_segments])
 
     print(f"\nStats:")
     for name, description in EVENTS:
         value = getattr(event_counts, name)
         print(f"{description:.<{padding}}{value:,}")
 
-    print(f"{'Cache entries':.<{padding}}{cache_entries:,}")
-    print(f"{'Cache segments':.<{padding}}{len(cache.key_segments):,}")
+    print(f"{'Cache entries':.<{padding}}{cache.nentries():,}")
+    print(f"{'Cache segments':.<{padding}}{cache.nsegments():,}")
 
 def build_event_counter_class():
     """
@@ -496,7 +495,8 @@ EventCounter = exec_scope['EventCounter']
 
 def solver_progress_bar(progress_array: np.ndarray[np.float64],
                         pbar: tqdm,
-                        stop_event: threading.Event):
+                        stop_event: threading.Event,
+                        refresh=0.25):
     """
     Monitors the progress array and updates the tqdm bar.
     Exits when stop_event is set.
@@ -513,7 +513,7 @@ def solver_progress_bar(progress_array: np.ndarray[np.float64],
             pbar.n = current_count
             pbar.refresh()
         
-        time.sleep(0.25)
+        time.sleep(refresh)
 
     # Ensure the bar is at 100% when the process is finished.
     total = progress_array[-1] if progress_array[-1] > 0 else 1.0
