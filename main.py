@@ -53,16 +53,30 @@ if __name__ == "__main__":
     word_features = get_word_features(all_words=guesses)
     prediction_func = load_classifier(word_features, positive_words=positive_words, all_words=guesses, retrain=False)
     reduced_answers = filter_words_by_probability(prediction_func, guesses)
-    print(f'{len(guesses) = }')
-    print(f'{len(reduced_answers) = }')
-    play_wordle(
-        pattern_matrix, 
-        guesses, 
-        reduced_answers, 
-        nprune_global=50, 
-        nprune_answers=50, 
-        starting_guess="SALET", 
-        show_stats=True, 
-        discord_printout=True,
-        max_guesses = 10,
-        sort_func=prediction_func)
+    # play_wordle(
+    #     pattern_matrix, 
+    #     guesses, 
+    #     reduced_answers, 
+    #     nprune_global=25, 
+    #     nprune_answers=0, 
+    #     starting_guess="SALET", 
+    #     show_stats=True, 
+    #     discord_printout=False,
+    #     max_guesses = 10,
+    #     sort_func=prediction_func)
+    
+    benchmark(pattern_matrix,
+              guesses,
+              reduced_answers,
+              reduced_answers,
+              nprune_global=25,
+              nprune_answers=25,
+              ngames=10,
+              init_guess="TALES",
+              max_depth=8,
+              max_guesses=6,
+              segment_size=1_000_000,
+              reuse_cache=True,
+              sort_func = prediction_func,
+              seed=None,
+              plot='post')
