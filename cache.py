@@ -166,3 +166,9 @@ class Cache:
                     self._grow()
             finally:
                 self._release_lock()
+
+    def nentries(self):
+        return sum([atomic_int.get() for atomic_int in self.fill_count_segments])
+
+    def nsegments(self):
+        return len(self.key_segments)
