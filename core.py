@@ -3,6 +3,7 @@ import time
 import wordfreq
 from helpers import *
 from engine import *
+from typing import Callable
 
 class InvalidWordError(ValueError):
     """Raised when the guessed word is not in the allowed word list."""
@@ -24,8 +25,8 @@ class wordle_game:
                  nprune_global: int, 
                  nprune_answers: int, 
                  max_depth: int = 6, 
-                 segment_capacity: int = 100_000,
-                 sort_func: callable = None): # Still need to get a better automatic estimate for this
+                 cache: Cache|int = 100_000,
+                 sort_func: Callable = None): # Still need to get a better automatic estimate for this
     
         if not set(answers).issubset(set(guesses)):
             raise Exception(f'Guess set must completely contain all answers in answer set.')
@@ -56,7 +57,12 @@ class wordle_game:
         self.nprune_answers = nprune_answers
         self.max_depth = max_depth
 
-        self.cache = Cache(segment_capacity)
+        if isinstance(cache, int):
+            self.cache = Cache(cache)
+        elif isinstance(cache, Cache):
+            self.cache = cache
+        else:
+            raise Exception(f'Wrong type for cache. Expected int or Cache and got {type(cache)}.')
 
         self.guesses_played = []
         self.patterns_seen = []
