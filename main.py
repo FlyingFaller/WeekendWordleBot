@@ -6,6 +6,7 @@ from game_runtime import *
 from classifier import *
 
 if __name__ == "__main__":
+    import json
     ### PLAY THE GAME BUT SAFE THIS TIME ###
     # guesses = get_words(refetch=False)
     # answers = get_words(refetch=False)
@@ -53,30 +54,44 @@ if __name__ == "__main__":
     word_features = get_word_features(all_words=guesses)
     prediction_func = load_classifier(word_features, positive_words=positive_words, all_words=guesses, retrain=False)
     reduced_answers = filter_words_by_probability(prediction_func, guesses)
-    # play_wordle(
-    #     pattern_matrix, 
-    #     guesses, 
-    #     reduced_answers, 
-    #     nprune_global=25, 
-    #     nprune_answers=0, 
-    #     starting_guess="SALET", 
-    #     show_stats=True, 
-    #     discord_printout=False,
-    #     max_guesses = 10,
-    #     sort_func=prediction_func)
+    play_wordle(
+        pattern_matrix, 
+        guesses, 
+        reduced_answers, 
+        nprune_global=25, 
+        nprune_answers=25, 
+        starting_guess="TALES", 
+        show_stats=True, 
+        discord_printout=True,
+        max_guesses = 10,
+        sort_func=prediction_func)
     
-    benchmark(pattern_matrix,
-              guesses,
-              reduced_answers,
-              reduced_answers,
-              nprune_global=25,
-              nprune_answers=25,
-              ngames=10,
-              init_guess="TALES",
-              max_depth=8,
-              max_guesses=6,
-              segment_size=1_000_000,
-              reuse_cache=True,
-              sort_func = prediction_func,
-              seed=None,
-              plot='post')
+    # benchmark(pattern_matrix,
+    #           guesses,
+    #           reduced_answers,
+    #           reduced_answers,
+    #           nprune_global=25,
+    #           nprune_answers=25,
+    #           ngames=10,
+    #           init_guess="TALES",
+    #           max_depth=8,
+    #           max_guesses=6,
+    #           segment_size=1_000_000,
+    #           reuse_cache=True,
+    #           sort_func = prediction_func,
+    #           seed=None,
+    #           plot='post')
+
+    # results = size_cache(pattern_matrix,
+    #                      guesses,
+    #                      answers,
+    #                      games_per_prune = 1,
+    #                      nprune_list = [5, 10, 30, 40],
+    #                      init_guess = None,
+    #                      max_depth = 7,
+    #                      max_guesses = 1,
+    #                      sort_func = prediction_func,
+    #                      plot=False)
+    
+    # with open('cache_data.json', 'w') as f:
+    #     json.dump(results,f)
