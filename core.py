@@ -25,7 +25,7 @@ class wordle_game:
                  nprune_global: int, 
                  nprune_answers: int, 
                  max_depth: int = 6, 
-                 cache: Cache|int = 100_000,
+                 cache: Cache|int|None = None,
                  sort_func: Callable = None): # Still need to get a better automatic estimate for this
     
         if not set(answers).issubset(set(guesses)):
@@ -61,6 +61,10 @@ class wordle_game:
             self.cache = Cache(cache)
         elif isinstance(cache, Cache):
             self.cache = cache
+        elif cache is None:
+            cache_size = np.ceil((514.6905/0.75)*(nprune_global+nprune_answers)**(3.34425)) # Experimentally measured for no preprogrammed initial guess
+            cache_size = min(cache_size, 2_097_152) # 0.25 GB cache segment size (1 cache entry takes 128 bytes) 
+            self.cache = Cache(int(cache_size))
         else:
             raise Exception(f'Wrong type for cache. Expected int or Cache and got {type(cache)}.')
 
