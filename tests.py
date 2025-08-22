@@ -10,6 +10,8 @@ import matplotlib.pyplot as plt
 import itertools
 import math
 from typing import Callable
+import plotly.graph_objects as go
+import plotly.io as pio
 
 def simulate_game(pattern_matrix: np.ndarray[np.uint8],
                   guesses       : np.ndarray[str],
@@ -17,11 +19,11 @@ def simulate_game(pattern_matrix: np.ndarray[np.uint8],
                   secret        : str,
                   nprune_global : int,
                   nprune_answers: int,
-                  init_guess    : str|None      = None,
-                  max_depth     : int           = 6,
-                  max_guesses   : int           = 6,
-                  cache         : int|Cache     = 100_000,
-                  sort_func     : Callable|None = None) -> dict: 
+                  init_guess    : str|None       = None,
+                  max_depth     : int            = 6,
+                  max_guesses   : int            = 6,
+                  cache         : int|Cache|None = None,
+                  sort_func     : Callable|None  = None) -> dict: 
     
     game_obj = wordle_game(pattern_matrix,
                            guesses,
@@ -87,11 +89,12 @@ def benchmark(pattern_matrix: np.ndarray[np.uint8],
               init_guess    : str|None                           = None,
               max_depth     : int                                = 6,
               max_guesses   : int                                = 6,
-              segment_size  : int                                = 100_000,
+              segment_size  : int|None                           = None,
               reuse_cache   : bool                               = False,
               sort_func     : Callable|None                      = None,
               seed          : int|float|str|bytes|bytearray|None = None,
-              plot          : str|None                           = None): 
+              plot          : str|None                           = None,
+              verbose       : bool                               = True): 
     
     start_time = time.time()
     
@@ -151,12 +154,12 @@ def benchmark(pattern_matrix: np.ndarray[np.uint8],
     if plot == 'live' or plot == 'post':
         _pause_plot()
 
-
-    print(f"Results after {ngames} solves ({end_time - start_time:.3f} sec):")
-    print(f"Starting guess of: {init_guess}")
-    print(f"Average score: {np.average(list(filter(lambda x: x > 0, plotting_stats))):.5f}")
-    print(f"Number of failed solves: {len(list(filter(lambda x: x < 0, plotting_stats)))}")
-    print(f"Seed used: {seed}")
+    if verbose:
+        print(f"Results after {ngames} solves ({end_time - start_time:.3f} sec):")
+        print(f"Starting guess of: {init_guess}")
+        print(f"Average score: {np.average(list(filter(lambda x: x > 0, plotting_stats))):.5f}")
+        print(f"Number of failed solves: {len(list(filter(lambda x: x < 0, plotting_stats)))}")
+        print(f"Seed used: {seed}")
 
     return stats
 
@@ -218,6 +221,50 @@ def check_pattern_uniqueness(
     # distinguishing guess.
     return None
 
+def size_cache(pattern_matrix : np.ndarray[np.uint8], 
+               guesses        : np.ndarray[str],
+               answers        : np.ndarray[str],
+               games_per_prune: int,
+               nprune_list    : list[int]|np.ndarray[int],
+               init_guess     : str|None                           = None,
+               max_depth      : int                                = 6,
+               max_guesses    : int                                = 6,
+               segment_size   : int|None                           = None,
+               sort_func      : Callable|None                      = None,
+               seed           : int|float|str|bytes|bytearray|None = None,
+               plot           : bool                               = True): 
+    # tuples[nprune, nanswers, cache_entries]
+    cache_data = []
+    for nprune in nprune_list:
+        stats = benchmark(pattern_matrix = pattern_matrix,
+                          guesses        = guesses,
+                          answers        = answers,
+                          secrets        = answers,
+                          nprune_global  = nprune,
+                          nprune_answers = 0,
+                          ngames         = games_per_prune,
+                          init_guess     = init_guess,
+                          max_depth      = max_depth,
+                          max_guesses    = max_guesses,
+                          segment_size   = segment_size,
+                          sort_func      = sort_func,
+                          seed           = seed,
+                          verbose        = False)
+        
+        for game_stats in stats:
+            old_cache_entries = 0
+            for round_stats in game_stats['round_stats']:
+                nanswers = round_stats['answers_remaining']
+                cache_entries = round_stats['cache_entries']
+                old_cache_entries = cache_entries
+                new_cache_entries = cache_entries - old_cache_entries
+                cache_hits = getattr(round_stats['event_counts'], 'cache_hits')
+                cache_data.append((nprune, nanswers, new_cache_entries + cache_hits))
+
+    if plot:
+        plot_cache_data(cache_data)
+    return cache_data
+
 def _init_plot(max_guesses):
     plt.ion() # Turn on interactive mode
     fig, axs = plt.subplots(nrows=2, ncols=1, figsize=(10, 10))
@@ -269,3 +316,29 @@ def _update_plot(axs, bins, plotting_stats, max_guesses, ngames, game_idx):
 def _pause_plot():
     plt.ioff() # Turn off interactive mode
     plt.show() # Keep the final plot window open
+
+def plot_cache_data(data_tuples):
+    nprunes = np.array([d[0] for d in data_tuples])
+    nanswers = np.array([d[1] for d in data_tuples])
+    cache_entries = np.array([d[2] for d in data_tuples])
+
+    # Create a scatter plot of the original data points
+    scatter_trace = go.Scatter3d(
+        x=nprunes, y=nanswers, z=cache_entries,
+        mode='markers',
+        marker=dict(size=5, color='red'),
+        name='Actual Data'
+    )
+
+    # Combine traces and define layout
+    fig = go.Figure(data=[scatter_trace])
+    fig.update_layout(
+        title='3D Scatter Plot of Raw Data',
+        scene=dict(
+            xaxis_title='nprune',
+            yaxis_title='nanswers',
+            zaxis_title='cache_entries'
+        ),
+        margin=dict(l=0, r=0, b=0, t=40)
+    )
+    fig.show(renderer='browser')
