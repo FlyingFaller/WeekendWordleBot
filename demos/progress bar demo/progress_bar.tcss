@@ -1,0 +1,15 @@
+/* minimal_progress.tcss */
+
+/* Target the ProgressBar container */
+ProgressBar {
+    /* Dock the widget to the bottom of the screen */
+    dock: bottom;
+    /* Add some margin for spacing */
+    margin: 1 2;
+}
+
+/* Target the inner Bar widget */
+ProgressBar > Bar {
+    /* Use 1fr to make the bar fill all available horizontal space */
+    width: 1fr;
+}
