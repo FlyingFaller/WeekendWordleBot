@@ -1279,6 +1279,15 @@ wheels = [
 ]
 
 [[package]]
+name = "pyfiglet"
+version = "1.0.4"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/c8/e3/0a86276ad2c383ce08d76110a8eec2fe22e7051c4b8ba3fa163a0b08c428/pyfiglet-1.0.4.tar.gz", hash = "sha256:db9c9940ed1bf3048deff534ed52ff2dafbbc2cd7610b17bb5eca1df6d4278ef", size = 1560615, upload-time = "2025-08-15T18:32:47.302Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/9f/5c/fe9f95abd5eaedfa69f31e450f7e2768bef121dbdf25bcddee2cd3087a16/pyfiglet-1.0.4-py3-none-any.whl", hash = "sha256:65b57b7a8e1dff8a67dc8e940a117238661d5e14c3e49121032bd404d9b2b39f", size = 1806118, upload-time = "2025-08-15T18:32:45.556Z" },
+]
+
+[[package]]
 name = "pygments"
 version = "2.19.2"
 source = { registry = "https://pypi.org/simple" }
@@ -1705,6 +1714,19 @@ wheels = [
 ]
 
 [[package]]
+name = "textual-coloromatic"
+version = "1.0.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "textual" },
+    { name = "textual-slidecontainer" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/14/ae/a2f66c1f6e8cfa799be7bfadb00cea16db71666f7524b91da3ff8cc279b4/textual_coloromatic-1.0.1.tar.gz", hash = "sha256:4a4ec2049f2fdaaa6ed983a05a359cfc7dd015be2b4b894cc908d01af05b5f45", size = 131208, upload-time = "2025-07-30T05:51:27.966Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/47/e1/823d747b3a939316af3aa14d47b80f34d15497b6112154eff3f5b455bb61/textual_coloromatic-1.0.1-py3-none-any.whl", hash = "sha256:2124c3f686c1efba622e51847f4f4c7b2d7dc58b22899c6c19cf6d6febcc58b0", size = 35384, upload-time = "2025-07-30T05:51:26.33Z" },
+]
+
+[[package]]
 name = "textual-dev"
 version = "1.7.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1722,6 +1744,21 @@ wheels = [
 ]
 
 [[package]]
+name = "textual-pyfiglet"
+version = "1.1.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "pyfiglet" },
+    { name = "textual" },
+    { name = "textual-coloromatic" },
+    { name = "textual-slidecontainer" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/dc/fd/de3fafcca531b1c154c36de42f375de469d2d02d64215d5e3ccac8dd4776/textual_pyfiglet-1.1.0.tar.gz", hash = "sha256:f8b24c213bc5818ac50820403ca8e69e357bdb53c7bf8981d5e8a9aea8486658", size = 140697, upload-time = "2025-08-07T11:54:03.673Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/4d/56/1c7cc069c9270fbe8d1056738931478cbb1e6a01af3692c9149912158cf5/textual_pyfiglet-1.1.0-py3-none-any.whl", hash = "sha256:e1aff02de37734aaa2bf492578f629e541519f4aa4e68f957baaadaeb94f6c48", size = 24302, upload-time = "2025-08-07T11:54:02.51Z" },
+]
+
+[[package]]
 name = "textual-serve"
 version = "1.1.2"
 source = { registry = "https://pypi.org/simple" }
@@ -1735,6 +1772,18 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/27/41/09d5695b050d592ff58422be2ca5c9915787f59ff576ca91d9541d315406/textual_serve-1.1.2.tar.gz", hash = "sha256:0ccaf9b9df9c08d4b2d7a0887cad3272243ba87f68192c364f4bed5b683e4bd4", size = 892959, upload-time = "2025-04-16T12:11:41.746Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/7c/fb/0006f86960ab8a2f69c9f496db657992000547f94f53a2f483fd611b4bd2/textual_serve-1.1.2-py3-none-any.whl", hash = "sha256:147d56b165dccf2f387203fe58d43ce98ccad34003fe3d38e6d2bc8903861865", size = 447326, upload-time = "2025-04-16T12:11:43.176Z" },
+]
+
+[[package]]
+name = "textual-slidecontainer"
+version = "1.0.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "textual" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/20/a4/5158103fab36bf3402aa8985d2cfca40bf4926d842d69197c89191b05cd5/textual_slidecontainer-1.0.0.tar.gz", hash = "sha256:7aa4688d07ba7331c3a990f6e3beb067172d6387df62fb0aa7a3a285822e0812", size = 119204, upload-time = "2025-07-29T12:21:01.961Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/e9/1c/f4854aa8d0e1c43e1b64ddd3932236c64c519deade263b2fbc0795a97868/textual_slidecontainer-1.0.0-py3-none-any.whl", hash = "sha256:dda5cd2e9c8a0eaaedbeb2af74dcae360759469d1f1e79fee476a9abdb9b4af8", size = 10933, upload-time = "2025-07-29T12:21:00.586Z" },
 ]
 
 [[package]]
@@ -1951,12 +2000,14 @@ dependencies = [
     { name = "numpy" },
     { name = "pandas" },
     { name = "plotly" },
+    { name = "pyfiglet" },
     { name = "requests" },
     { name = "scikit-learn" },
     { name = "scipy" },
     { name = "spacy" },
     { name = "textual" },
     { name = "textual-dev" },
+    { name = "textual-pyfiglet" },
     { name = "tqdm" },
     { name = "wordfreq" },
     { name = "xgboost" },
@@ -1975,12 +2026,14 @@ requires-dist = [
     { name = "numpy", specifier = ">=2.2.6" },
     { name = "pandas", specifier = ">=2.3.1" },
     { name = "plotly", specifier = ">=6.2.0" },
+    { name = "pyfiglet", specifier = ">=1.0.4" },
     { name = "requests", specifier = ">=2.32.4" },
     { name = "scikit-learn", specifier = ">=1.7" },
     { name = "scipy", specifier = ">=1.16.1" },
     { name = "spacy", specifier = ">=3.8.7" },
     { name = "textual", specifier = ">=5.3.0" },
     { name = "textual-dev", specifier = ">=1.7.0" },
+    { name = "textual-pyfiglet", specifier = ">=1.1.0" },
     { name = "tqdm", specifier = ">=4.67.1" },
     { name = "wordfreq", specifier = ">=3.1.1" },
     { name = "xgboost", specifier = ">=3.0.2" },
