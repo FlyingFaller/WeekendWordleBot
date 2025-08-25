@@ -1,0 +1,116 @@
+/* Main screen and layout configuration */
+Screen {
+    /* Use the background color from the original demo */
+    background: #121213;
+    color: $text;
+    /* Use a vertical layout to allow docking at the bottom */
+    layout: vertical;
+}
+
+#app-container {
+    /* Main container for sidebar and board */
+    layout: horizontal;
+    width: 100%;
+    /* Use 1fr to fill the available vertical space */
+    height: 1fr;
+}
+
+/* --- Sidebar Styling --- */
+#sidebar-container {
+    /* Let the sidebar be flexible */
+    width: 1fr;
+    /* Give the sidebar a minimum width */
+    min-width: 40;
+    height: 100%;
+    padding: 1 2;
+    background: #121213;
+    overflow-y: auto;
+    align: left middle;
+}
+
+/* Rule to make DataTable columns equal width */
+DataTable {
+    width: 100%;
+    layout: grid;
+}
+
+/* Add border to the table's container */
+StatsTable {
+    border: round gray;
+}
+
+
+/* --- Wordle Board Styling --- */
+
+/* Wrapper for alignment and outer padding */
+#board-wrapper {
+    width: 1fr;
+    height: 100%;
+    align: right middle;
+    background: #121213;
+    padding: 1 2;
+    overflow: auto;
+}
+
+/* The board itself is sized by python and gets the border */
+#wordle-board {
+    layout: grid;
+    grid-size: 5 6;
+    grid-gutter: 0 1;
+    border: round gray;
+    box-sizing: border-box; 
+}
+
+LetterSquare {
+    width: 100%;
+    height: 100%;
+    content-align: center middle;
+    color: white;
+    transition: background 0.2s;
+    border: hkey #121213;
+}
+
+/* Style for the bot's recommended word: non-bold, italic */
+LetterSquare.recommendation {
+    text-style: italic;
+}
+
+/* Style for the user-entered word: bold, non-italic */
+LetterSquare.filled {
+    text-style: bold;
+}
+
+/* A yellow border indicates the currently selected tile for pattern input */
+LetterSquare.focused {
+    border: hkey yellow;
+}
+
+/* --- Progress Bar Styling --- */
+
+/* Style the new container for the progress bar */
+TitledProgressBar {
+    dock: bottom;
+    margin: -1 0 1 0;
+    height: 3;
+    border: round gray;
+}
+
+/* The actual progress bar has no special styling */
+#progress {
+    height: 100%;
+}
+
+ProgressBar > Bar {
+    width: 1fr;
+}
+
+/* FIXED: New styles for the stats display */
+StatsDisplay {
+    margin-top: 1;
+    border: round gray;
+    height: auto;
+}
+
+StatsDisplay > DataTable {
+    grid-columns: 3fr 1fr; /* Make the description column wider */
+}
