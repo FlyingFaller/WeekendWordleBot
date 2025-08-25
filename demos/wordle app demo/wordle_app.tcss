@@ -1,0 +1,133 @@
+/* Main screen and layout configuration */
+Screen {
+    background: #121213;
+    color: $text;
+    layout: vertical;
+}
+
+#app-container {
+    layout: horizontal;
+    width: 100%;
+    height: 1fr;
+}
+
+/* --- New Startup and Settings Screen Styling --- */
+#startup-dialog, #settings-dialog {
+    align: center middle;
+    width: 100%;
+    height: 100%;
+}
+
+/* UPDATED: The main container's only job is to center the Figlet */
+#startup-dialog {
+    align: center middle;
+}
+
+/* The FigletWidget is now centered by its parent container */
+#startup-dialog FigletWidget {
+    /* No special alignment rules needed here anymore */
+}
+
+#title {
+    padding-bottom: 2;
+    text-style: bold;
+}
+
+.subtitle {
+    text-style: italic;
+}
+
+/* UPDATED: Use 'dock' to reliably place the subtitle at the bottom */
+#startup-dialog > .subtitle {
+    dock: bottom;
+    width: 100%;
+    content-align: center middle;
+    margin: 0 0 2 0; /* Add a 2-cell margin at the bottom */
+}
+
+
+/* --- Sidebar Styling --- */
+#sidebar-container {
+    width: 1fr;
+    min-width: 40;
+    height: 100%;
+    padding: 1 2;
+    background: #121213;
+    overflow-y: auto;
+    align: left middle;
+}
+
+DataTable {
+    width: 100%;
+    layout: grid;
+}
+
+StatsTable {
+    border: round gray;
+}
+
+
+/* --- Wordle Board Styling --- */
+#board-wrapper {
+    width: 1fr;
+    height: 100%;
+    align: right middle;
+    background: #121213;
+    padding: 1 2;
+    overflow: auto;
+}
+
+#wordle-board {
+    layout: grid;
+    grid-size: 5 6;
+    grid-gutter: 0 1;
+    border: round gray;
+    box-sizing: border-box; 
+}
+
+LetterSquare {
+    width: 100%;
+    height: 100%;
+    content-align: center middle;
+    color: white;
+    transition: background 0.2s;
+    border: hkey #121213;
+}
+
+LetterSquare.recommendation {
+    text-style: italic;
+}
+
+LetterSquare.filled {
+    text-style: bold;
+}
+
+LetterSquare.focused {
+    border: hkey yellow;
+}
+
+/* --- Progress Bar Styling --- */
+TitledProgressBar {
+    dock: bottom;
+    margin: -1 0 1 0;
+    height: 3;
+    border: round gray;
+}
+
+#progress {
+    height: 100%;
+}
+
+ProgressBar > Bar {
+    width: 1fr;
+}
+
+StatsDisplay {
+    margin-top: 1;
+    border: round gray;
+    height: auto;
+}
+
+StatsDisplay > DataTable {
+    grid-columns: 3fr 1fr;
+}
