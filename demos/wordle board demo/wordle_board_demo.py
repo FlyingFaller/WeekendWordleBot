@@ -3,9 +3,14 @@ A standalone demo of a Wordle board UI element using Textual.
 
 This script creates a 6x5 grid of letter squares that dynamically resizes
 with the terminal window while maintaining the aspect ratio of the tiles.
+Each letter is rendered as ASCII art using the pyfiglet library.
+
+NOTE: You must install pyfiglet for this script to run:
+pip install pyfiglet
 """
 import random
 import string
+import pyfiglet
 from textual.app import App, ComposeResult
 from textual.containers import Container
 # We are now using the Static widget for a sleeker, more semantically correct approach.
@@ -26,6 +31,9 @@ class LetterSquare(Static):
     # 0: Gray, 1: Yellow, 2: Green
     color_index = reactive(0)
 
+    # Create a single Figlet instance to be reused for efficiency.
+    figlet = pyfiglet.Figlet(font='bigfig')
+
     def __init__(self, letter: str = " "):
         """
         Initializes the LetterSquare.
@@ -33,8 +41,10 @@ class LetterSquare(Static):
         Args:
             letter: The letter to display in the square. Defaults to a space.
         """
-        # The letter is passed to the superclass (Static) to be rendered.
-        super().__init__(letter.upper())
+        super().__init__()
+        self.letter = letter
+        # Render the ASCII art and strip only trailing newlines to preserve character shape.
+        self.ascii_art = self.figlet.renderText(letter).rstrip('\n')
 
     def on_mount(self) -> None:
         """
@@ -67,6 +77,17 @@ class LetterSquare(Static):
         """
         self.color_index = (self.color_index + 1) % len(COLORS)
 
+    def render(self) -> str:
+        """
+        Conditionally render either the ASCII art or a single character
+        based on the available height of the tile.
+        """
+        # Check the available height inside the widget's content area.
+        if self.content_size.height >= 5:
+            return self.ascii_art
+        else:
+            return self.letter
+
 
 class WordleBoard(Container):
     """A 6x5 grid container that holds the LetterSquare widgets."""
@@ -82,40 +103,11 @@ class WordleBoard(Container):
 class WordleBoardDemo(App):
     """A Textual application to demonstrate the Wordle board UI."""
 
+    # Link to the external stylesheet
+    CSS_PATH = "wordle_board_demo.tcss"
+
     # Define the aspect ratio for a single tile (width / height)
     TILE_ASPECT_RATIO = 2.0
-
-    # Inline CSS to style the app and its components.
-    CSS = """
-    Screen {
-        /* Center the WordleBoard in the middle of the screen */
-        align: center middle;
-        /* Set a dark background color. This will be the color of our 'gutters'. */
-        background: #121213;
-    }
-
-    WordleBoard {
-        /* Use a grid layout for the squares */
-        layout: grid;
-        /* Define a 5-column, 6-row grid */
-        grid-size: 5 6;
-        /* Use a 1-cell horizontal gutter */
-        grid-gutter: 0 1;
-        /* The width and height are now set dynamically in Python */
-    }
-
-    LetterSquare {
-        /* Make each square fill its grid cell */
-        width: 100%;
-        height: 100%;
-        /* Center the letter within the square */
-        content-align: center middle;
-        /* Explicitly set the text color to white */
-        color: white;
-        /* Use an outline, which is drawn OUTSIDE the element, to create the gutter effect */
-        outline: hkey #121213;
-    }
-    """
 
     def compose(self) -> ComposeResult:
         """Create and return the main widget for the app."""
