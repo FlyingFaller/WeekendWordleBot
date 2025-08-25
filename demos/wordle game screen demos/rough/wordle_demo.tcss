@@ -1,0 +1,88 @@
+/* General Layout */
+Screen {
+    layout: vertical;
+}
+
+Horizontal {
+    layout: horizontal;
+    height: 1fr; /* Make horizontal layout fill the screen */
+}
+
+#left-panel {
+    width: 30%;
+    border: heavy white;
+    padding: 1;
+}
+
+#right-panel {
+    width: 70%;
+    border: heavy white;
+    padding: 0; /* Reduced padding to make the grid use more space */
+    align: center middle; /* This is key: The PARENT container centers the grid. */
+}
+
+/* Wordle Grid Styling */
+WordleGrid {
+    /* This container is now a simple block, sized to fit its content. */
+    width: auto;
+    height: auto;
+}
+
+WordleRow {
+    layout: horizontal;
+    width: auto;
+    height: auto;
+    margin-bottom: 1; /* Create a 1-cell gap between rows */
+}
+
+/* The last row shouldn't have a margin at the bottom */
+WordleRow:last-child {
+    margin-bottom: 0;
+}
+
+Letter {
+    /* REMOVED fixed width and height. Python will set this now. */
+    margin: 0 2 0 0; /* Creates a 2-cell gap between columns */
+    text-align: center; /* Horizontally center text */
+    content-align: center middle; /* Vertically center text */
+    text-style: bold;
+    background: grey;
+    color: white !important;
+    /* REMOVED invalid font-size property */
+}
+
+/* The last letter in a row shouldn't have a margin on the right */
+Letter:last-child {
+    margin-right: 0;
+}
+
+#lbl_1 {
+    color: white;
+}
+#lbl_2 {
+    color: white;
+}
+#lbl_3 {
+    color: white;
+}
+#lbl_4 {
+    color: white;
+}
+#lbl_5 {
+    color: white;
+}
+
+/* Data Table Styling */
+DataTable {
+    height: 100%;
+}
+
+/* Progress Bar Styling */
+ProgressBar {
+    dock: bottom;
+    margin: 1 2;
+}
+
+ProgressBar > Bar {
+    width: 1fr;
+}
