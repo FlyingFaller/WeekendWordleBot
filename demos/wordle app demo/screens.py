@@ -26,14 +26,13 @@ class StartupScreen(Screen):
 
     def compose(self) -> ComposeResult:
         """Render the startup screen."""
-        # UPDATED: Reverted to the Label approach as requested.
         yield Vertical(
             FigletWidget(
                 "> Weekend Wordle",
                 font="georgia11",
                 justify="center",
                 colors=["#4795de", "#bb637a"],
-                horizontal=False
+                horizontal=True
             ),
             Label("Press any key to start", classes="subtitle"),
             id="startup-dialog",
@@ -43,6 +42,7 @@ class StartupScreen(Screen):
         """Go to the main game screen when any key is pressed."""
         event.prevent_default()
         self.app.push_screen(GameScreen())
+
 class SettingsScreen(Screen):
     """A placeholder screen for settings."""
 
@@ -50,7 +50,6 @@ class SettingsScreen(Screen):
         """Render the settings screen."""
         yield Vertical(
             Label("Settings", id="title"),
-            # FIXED: Use a class for styling instead of an ID
             Label("This screen is a placeholder for future settings.", classes="subtitle"),
             Label("Press Ctrl+S to save and close.", classes="subtitle"),
             id="settings-dialog",
@@ -59,29 +58,21 @@ class SettingsScreen(Screen):
 class GameScreen(Screen):
     """The main screen for the Wordle game."""
 
-    # --- App-level reactive properties for state management ---
     current_row = 0
     game_state = GameState.INPUT_WORD
     focused_col = 0
     suggested_word = "SLATE"
-
-    # --- Figlet Settings ---
     use_figlet = True
-
-    # --- Constants ---
-    TILE_ASPECT_RATIO = 2.0 # From original demo
+    TILE_ASPECT_RATIO = 2.0
 
     def __init__(self):
         super().__init__()
         self.board: list[list[LetterSquare]] = [[] for _ in range(6)]
         self.current_word = ""
-
-        # Create a single, universal text processor based on settings.
         if self.use_figlet:
             self.text_processor = FigletProcessor()
         else:
             self.text_processor = TextProcessor()
-
 
     def compose(self) -> ComposeResult:
         """Create the layout of the application."""
@@ -95,29 +86,40 @@ class GameScreen(Screen):
 
     def on_mount(self) -> None:
         """Called when the screen is first mounted."""
-        # Populate the board reference for easy access
         for square in self.query(LetterSquare):
             self.board[square.row].append(square)
-
         self.start_turn()
-        # Start a dummy progress interval
         self.set_interval(1 / 10, self.update_progress)
-        # Trigger initial resize
         self.call_after_refresh(self.on_resize)
 
-    # --- Window Resizing Logic ---
     def on_resize(self, event: object = None) -> None:
         """Handles window resize events to keep the board centered and scaled."""
-        wrapper = self.query_one("#board-wrapper")
-        available_size = wrapper.content_size
-        if not available_size.height or not available_size.width:
+        
+        # --- UPDATED: Simplified and corrected layout logic ---
+        
+        # 1. Get references to all the layout components
+        app_container = self.query_one("#app-container")
+        sidebar = self.query_one(Sidebar)
+        progress_bar = self.query_one(TitledProgressBar)
+        stats_table = sidebar.query_one(StatsTable).query_one(DataTable)
+        stats_display = sidebar.query_one(StatsDisplay).query_one(DataTable)
+
+        # 2. Calculate the sidebar's required width dynamically
+        # FIXED: Use virtual_size.width to get the ideal content width
+        sidebar_width = max(stats_table.virtual_size.width, stats_display.virtual_size.width) + 10 # magic number do not change
+        
+        # 3. Calculate the true available space for the board
+        available_width = app_container.content_size.width - sidebar_width
+        # Subtract the progress bar's height (including its border)
+        available_height = app_container.content_size.height - progress_bar.outer_size.height
+
+        if not available_height or not available_width:
             return
 
-        h_padding = 2
-        v_padding = 2
-
-        padded_width = available_size.width - h_padding
-        padded_height = available_size.height - v_padding
+        # 4. Perform the aspect ratio calculation as before
+        h_padding, v_padding = 2, 2
+        padded_width = available_width - h_padding
+        padded_height = available_height - v_padding
 
         if padded_width <= 0 or padded_height <= 0:
             return
@@ -147,45 +149,35 @@ class GameScreen(Screen):
             new_height = min_cell_height * rows
             new_width = (min_cell_width * cols) + total_gutter_space
 
+        # 5. Apply the final dimensions
         board = self.query_one(WordleBoard)
         board.styles.width = new_width + h_padding
         board.styles.height = new_height + v_padding
 
-    # --- Game Logic and State Transitions ---
-
+    # --- Game Logic (omitted for brevity, no changes) ---
     def start_turn(self) -> None:
-        """Initializes a new turn."""
         self.game_state = GameState.INPUT_WORD
         self.current_word = ""
         self.update_footer()
         if self.current_row < 6:
             self._update_recommendation_display()
-
     def submit_word(self) -> None:
-        """Submits the current word and transitions to pattern input."""
         self.game_state = GameState.INPUT_PATTERN
         self.update_footer()
         for square in self.board[self.current_row]:
             square.color_index = 0
         self.focused_col = 0
         self.board[self.current_row][self.focused_col].has_focus = True
-
-
     def submit_pattern(self) -> None:
-        """Submits the color pattern and advances the game."""
         self.board[self.current_row][self.focused_col].has_focus = False
-
         is_win = all(sq.color_index == 2 for sq in self.board[self.current_row])
         if is_win or self.current_row >= 5:
             self.game_state = GameState.GAME_OVER
             self.update_footer()
             return
-
         self.current_row += 1
         self.start_turn()
-
     def update_footer(self) -> None:
-        """Updates the footer text based on the current game state."""
         footer = self.query_one(Footer)
         if self.game_state == GameState.INPUT_WORD:
             footer.key_text = "Tab: Autocomplete | Enter: Submit Word | Type to enter your guess."
@@ -193,25 +185,17 @@ class GameScreen(Screen):
             footer.key_text = "Enter: Submit | Arrows: Navigate | Click or type pattern (g, y, -)."
         elif self.game_state == GameState.GAME_OVER:
             footer.key_text = "Game Over! Press 'Q' to Quit."
-
-    # --- Input and Event Handlers ---
-
     def on_data_table_row_highlighted(self, event: DataTable.RowHighlighted) -> None:
-        """Handle the user highlighting a new row in the suggestions table."""
         if self.game_state == GameState.INPUT_WORD and not self.current_word:
             stats_table = self.query_one(StatsTable)
             self.suggested_word = stats_table.dummy_rows[event.cursor_row][1]
             self._update_recommendation_display()
-
     def on_key(self, event: events.Key) -> None:
-        """Handles all key presses."""
         if self.game_state == GameState.INPUT_WORD:
             self.handle_word_input(event)
         elif self.game_state == GameState.INPUT_PATTERN:
             self.handle_pattern_input(event)
-
     def handle_word_input(self, event: events.Key) -> None:
-        """Handles key events during the word input phase."""
         if event.key == "tab":
             event.prevent_default()
             if self.suggested_word.startswith(self.current_word):
@@ -235,9 +219,7 @@ class GameScreen(Screen):
                 square.letter_state = LetterState.FILLED
                 self.current_word += char_upper
                 self._update_recommendation_display()
-
     def _update_recommendation_display(self) -> None:
-        """Updates the rest of the row with the recommended word."""
         recommendation = self.suggested_word
         prefix = self.current_word
         matches = recommendation.startswith(prefix)
@@ -249,9 +231,7 @@ class GameScreen(Screen):
             else:
                 square.letter = " "
                 square.letter_state = LetterState.EMPTY
-
     def handle_pattern_input(self, event: events.Key) -> None:
-        """Handles key events during the pattern input phase."""
         old_col = self.focused_col
         if event.key == "enter":
             self.submit_pattern()
@@ -265,25 +245,18 @@ class GameScreen(Screen):
             square = self.board[self.current_row][self.focused_col]
             square.color_index = COLOR_CHARS[event.character.lower()]
             self.focused_col = min(4, self.focused_col + 1)
-
         if old_col != self.focused_col:
             self.board[self.current_row][old_col].has_focus = False
             self.board[self.current_row][self.focused_col].has_focus = True
-
-
     def on_letter_square_clicked(self, message: LetterSquare.Clicked) -> None:
-        """Handles clicks on the letter squares."""
         if (self.game_state == GameState.INPUT_PATTERN and
                 message.square.row == self.current_row):
             square = message.square
-
             self.board[self.current_row][self.focused_col].has_focus = False
             self.focused_col = square.col
             self.board[self.current_row][self.focused_col].has_focus = True
             square.color_index = (square.color_index + 1) % len(COLORS)
-
     def update_progress(self) -> None:
-        """Dummy function to advance the progress bar."""
         progress_bar = self.query_one(ProgressBar)
         if progress_bar.progress < 100:
             progress_bar.advance(1)
