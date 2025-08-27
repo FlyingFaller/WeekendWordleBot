@@ -28,7 +28,7 @@ class LetterState(Enum):
 
 class LetterSquare(Static):
     """A clickable, color-changing square for a single letter."""
-
+    ALLOW_SELECT = False
     class Clicked(Message):
         def __init__(self, square: "LetterSquare"):
             self.square = square
@@ -71,7 +71,7 @@ class LetterSquare(Static):
 
 class WordleBoard(Container):
     """A 6x5 grid container that holds game logic and state."""
-    
+    ALLOW_SELECT = False
     BORDER_TITLE = "Board"
 
     # --- Game State Properties ---
