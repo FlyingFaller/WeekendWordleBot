@@ -2,7 +2,7 @@ import numpy as np
 from numba import njit, prange, get_num_threads, get_thread_id
 
 # Assuming numpy_atomic.py is in the same directory
-from atomic_ops import atomic_add
+from src.weekend_wordle.backend.atomic_ops import atomic_add
 
 # --- Problem Demonstration: Race Condition ---
 # This function demonstrates what happens without atomic operations.
