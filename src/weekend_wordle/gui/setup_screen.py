@@ -1,0 +1,328 @@
+"""
+Defines the SetupScreen and its components for the Wordle Solver application.
+
+This screen is intended to gather configuration from the user before loading
+the main game.
+"""
+from textual.app import ComposeResult
+from textual.containers import Container, Horizontal, VerticalScroll, Vertical
+from textual.screen import Screen
+from textual.widgets import Header, Footer, Static, Input, Switch, Collapsible, Checkbox
+from textual import events
+
+from loading_screen import LoadingScreen
+
+# Copied from backend for easy reference in the GUI
+DEFAULT_CONFIG = {
+    'use_vectors': True,
+    'spy_rate': 0.15,
+    'max_iterations': 1000,
+    'convergence_tolerance': 1e-2,
+    'random_seed': None,
+    'evaluation_threshold': 0.07,
+    'explicit_features': {
+        'frequency': 1.0, 
+        'is_regular_plural': 1.0, 
+        'is_irregular_plural': 1.0,
+        'is_past_tense': 1.0, 
+        'is_adjective': 1.0,
+        'is_proper_noun': 1.0, 
+        'is_gerund': 1.0, 
+        'vowel_count': 1.0, 
+        'has_double_letter': 1.0
+    }
+}
+
+
+class LoadingWidget(Container):
+    """A generic, extensible widget for configuring data loading."""
+
+    def __init__(
+        self,
+        title: str,
+        savefile_path: str = "",
+        url: str = "",
+        refetch: bool = False,
+        save: bool = True,
+        *args,
+        **kwargs,
+    ) -> None:
+        super().__init__(*args, **kwargs)
+        self.border_title = title
+        self._savefile_path = savefile_path
+        self._url = url
+        self._refetch = refetch
+        self._save = save
+
+    def compose_inputs(self) -> ComposeResult:
+        """Yields the input field widgets. Can be overridden by subclasses."""
+        with Horizontal(classes="input-row"):
+            yield Static("Save File Path:")
+            yield Input(
+                value=self._savefile_path,
+                placeholder="e.g., data/my_words.txt",
+                id="savefile",
+                compact=True
+            )
+        with Horizontal(classes="input-row"):
+            yield Static("URL:")
+            yield Input(value=self._url, 
+                        placeholder="e.g., https://...", 
+                        id="url",
+                        compact=True)
+
+    def compose_switches(self) -> ComposeResult:
+        """Yields the switch widgets. Can be overridden by subclasses."""
+        with Horizontal(classes="switch-group"):
+            yield Switch(value=self._refetch, id="refetch")
+            yield Static("Refetch/Recompute")
+        with Horizontal(classes="switch-group"):
+            yield Switch(value=self._save, id="save")
+            yield Static("Save to File")
+
+    def compose(self) -> ComposeResult:
+        """Create child widgets for the loading configuration."""
+        yield from self.compose_inputs()
+        with Container(classes="switch-container"):
+            yield from self.compose_switches()
+
+    def get_config(self) -> dict:
+        """Returns the current configuration from the UI widgets."""
+        return {
+            "savefile": self.query_one("#savefile", Input).value,
+            "url": self.query_one("#url", Input).value,
+            "refetch": self.query_one("#refetch", Switch).value,
+            "save": self.query_one("#save", Switch).value,
+        }
+
+
+class GetWordsWidget(LoadingWidget):
+    """A specialized widget for loading word lists from files or URLs."""
+
+    def __init__(
+        self,
+        include_uppercase: bool = False,
+        *args,
+        **kwargs,
+    ) -> None:
+        super().__init__(*args, **kwargs)
+        self._include_uppercase = include_uppercase
+
+    def compose_switches(self) -> ComposeResult:
+        """Yields the base switches and the new 'include_uppercase' switch."""
+        yield from super().compose_switches()
+        with Horizontal(classes="switch-group"):
+            yield Switch(value=self._include_uppercase, id="include_uppercase")
+            yield Static("Incl. Uppercase")
+
+    def get_config(self) -> dict:
+        """Returns the current configuration, including the extra switch."""
+        config = super().get_config()
+        config["include_uppercase"] = self.query_one("#include_uppercase", Switch).value
+        return config
+
+
+class GetPatternMatrixWidget(LoadingWidget):
+    """A specialized widget for loading the pattern matrix."""
+
+    def compose_inputs(self) -> ComposeResult:
+        """Yields only the savefile input, as no URL is needed."""
+        with Horizontal(classes="input-row"):
+            yield Static("Save File Path:")
+            yield Input(
+                value=self._savefile_path,
+                placeholder="e.g., data/pattern_matrix.npy",
+                id="savefile",
+                compact=True
+            )
+    
+    def get_config(self) -> dict:
+        """Returns the config, excluding the URL which is not present."""
+        return {
+            "savefile": self.query_one("#savefile", Input).value,
+            "refetch": self.query_one("#refetch", Switch).value,
+            "save": self.query_one("#save", Switch).value,
+        }
+
+
+class ScrapeWordsWidget(LoadingWidget):
+    """A specialized widget for scraping words from a website."""
+
+    def __init__(self, header: str = "All Wordle answers,h2", *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._header = header
+
+    def compose_inputs(self) -> ComposeResult:
+        """Yields base inputs and the new 'header' input."""
+        yield from super().compose_inputs()
+        with Horizontal(classes="input-row"):
+            yield Static("Header (text,tag):")
+            yield Input(value=self._header, id="header", compact=True)
+    
+    def get_config(self) -> dict:
+        """Returns the config, including the header."""
+        config = super().get_config()
+        header_text = self.query_one("#header", Input).value
+        config["header"] = tuple(header_text.split(','))
+        return config
+
+
+class GetWordFeaturesWidget(GetPatternMatrixWidget):
+    """A specialized widget for loading word features."""
+
+    def __init__(self, model_name: str = "en_core_web_lg", *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._model_name = model_name
+
+    def compose_inputs(self) -> ComposeResult:
+        """Yields base inputs and the new 'model_name' input."""
+        yield from super().compose_inputs()
+        with Horizontal(classes="input-row"):
+            yield Static("Spacy Model Name:")
+            yield Input(value=self._model_name, id="model_name", compact=True)
+
+    def get_config(self) -> dict:
+        """Returns the config, including the model name."""
+        config = super().get_config()
+        config["model_name"] = self.query_one("#model_name", Input).value
+        return config
+
+
+class FeatureWidget(Container):
+    """A widget for a single feature with a checkbox and a weight input."""
+    def __init__(self, name: str, weight: float, enabled: bool = True):
+        super().__init__()
+        self.feature_name = name
+        self.feature_weight = weight
+        self.feature_enabled = enabled
+
+    def compose(self) -> ComposeResult:
+        yield Checkbox(self.feature_name, value=self.feature_enabled, id="enabled_checkbox", compact=True)
+        yield Input(value=str(self.feature_weight), id="weight_input", compact=True)
+
+
+class LoadClassifierWidget(GetPatternMatrixWidget):
+    """A specialized widget for loading the word classifier with advanced options."""
+
+    def __init__(self, config: dict = DEFAULT_CONFIG, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._config = config
+
+    def compose(self) -> ComposeResult:
+        """Yields base inputs and a collapsible advanced section."""
+        yield from super().compose_inputs()
+        with Container(classes="switch-container"):
+            yield from super().compose_switches()
+        
+        with Collapsible(title="Advanced Training Options"):
+            with Horizontal(classes="column-container"):
+                with Vertical(classes="column"):
+                    with Horizontal(classes="input-row"):
+                        yield Static("Spy Rate:")
+                        yield Input(value=str(self._config['spy_rate']), id="spy_rate", compact=True)
+                    with Horizontal(classes="input-row"):
+                        yield Static("Max Iterations:")
+                        yield Input(value=str(self._config['max_iterations']), id="max_iterations", compact=True)
+                    with Horizontal(classes="input-row"):
+                        yield Static("Convergence Tolerance:")
+                        yield Input(value=str(self._config['convergence_tolerance']), id="convergence_tolerance", compact=True)
+                with Vertical(classes="column"):
+                    with Horizontal(classes="input-row"):
+                        yield Static("Random Seed:")
+                        yield Input(placeholder="Blank for None", value=str(self._config.get('random_seed') or ''), id="random_seed", compact=True)
+                    with Horizontal(classes="input-row"):
+                        yield Static("Evaluation Threshold:")
+                        yield Input(value=str(self._config['evaluation_threshold']), id="evaluation_threshold", compact=True)
+                    with Horizontal(classes="switch-group"):
+                        yield Switch(value=self._config['use_vectors'], id="use_vectors")
+                        yield Static("Use Word Vectors")
+            
+            yield Static("\nExplicit Feature Weights:", classes="feature-header")
+            
+            with Horizontal(classes="column-container", id="feature-list"):
+                feature_items = list(self._config['explicit_features'].items())
+                with Vertical(classes="column"):
+                    for name, weight in feature_items[:5]:
+                        yield FeatureWidget(name=name, weight=weight)
+                with Vertical(classes="column"):
+                    for name, weight in feature_items[5:]:
+                        yield FeatureWidget(name=name, weight=weight)
+
+    def get_config(self) -> dict:
+        """Returns the full, nested config dictionary from all UI elements."""
+        base_config = super().get_config()
+        
+        explicit_features = {}
+        for feature_widget in self.query(FeatureWidget):
+            if feature_widget.query_one("#enabled_checkbox", Checkbox).value:
+                name = feature_widget.feature_name
+                weight_str = feature_widget.query_one("#weight_input", Input).value
+                try:
+                    explicit_features[name] = float(weight_str)
+                except ValueError:
+                    explicit_features[name] = 1.0
+
+        seed_str = self.query_one("#random_seed", Input).value
+        random_seed = int(seed_str) if seed_str else None
+
+        base_config['config'] = {
+            'use_vectors': self.query_one("#use_vectors", Switch).value,
+            'spy_rate': float(self.query_one("#spy_rate", Input).value),
+            'max_iterations': int(self.query_one("#max_iterations", Input).value),
+            'convergence_tolerance': float(self.query_one("#convergence_tolerance", Input).value),
+            'random_seed': random_seed,
+            'evaluation_threshold': float(self.query_one("#evaluation_threshold", Input).value),
+            'explicit_features': explicit_features,
+        }
+        return base_config
+
+
+class SetupScreen(Screen):
+    """A screen to configure the Wordle solver setup."""
+
+    AUTO_FOCUS = " "
+    CSS_PATH = "setup_screen.tcss"
+
+    BINDINGS = [
+        ("enter", "confirm_setup", "Confirm Setup"),
+    ]
+
+    def on_click(self, event: events.Click) -> None:
+        """Called when the user clicks the screen. Focuses the screen."""
+        self.set_focus(None)
+
+    def compose(self) -> ComposeResult:
+        """Create child widgets for the screen."""
+        yield Header()
+        with VerticalScroll():
+            yield Static("Solver Configuration", id="main_title")
+            yield GetWordsWidget(
+                title="Valid Guesses",
+                savefile_path="data/valid_guesses.txt",
+                url="https://gist.github.com/dracos/dd0668f281e685bad51479e5acaadb93/raw/6bfa15d6d5b63840a8e5b64e04b382fdb079/valid-wordle-words.txt",
+            )
+            yield GetPatternMatrixWidget(
+                title="Pattern Matrix",
+                savefile_path="data/full_pattern_matrix.npy",
+            )
+            yield ScrapeWordsWidget(
+                title="Past Answers (Scraper)",
+                savefile_path="data/past_answers.txt",
+                url="https://www.rockpapershotgun.com/wordle-past-answers",
+            )
+            yield GetWordFeaturesWidget(
+                title="Word Features",
+                savefile_path="data/word_features.pkl",
+            )
+            yield LoadClassifierWidget(
+                title="Wordle Classifier",
+                savefile_path="data/wordle_classifier.pkl",
+            )
+        yield Footer()
+
+    def action_confirm_setup(self) -> None:
+        """
+        Called when the user presses Enter.
+        Switches to the loading screen.
+        """
+        self.app.switch_screen(LoadingScreen())

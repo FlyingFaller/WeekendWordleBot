@@ -1,0 +1,105 @@
+/* Styling for the SetupScreen and its components */
+
+#main_title {
+    width: 100%;
+    text-align: center;
+    padding: 1;
+}
+
+LoadingWidget {
+    border: round gray;
+    padding: 0 1; /* top/bottom, left/right */
+    margin: 1 2;
+    height: auto; /* Allow the widget to size to its content */
+}
+
+.input-row {
+    layout: horizontal;
+    height: 1;
+    align: center middle;
+    margin-bottom: 1; /* Add space below each input row */
+}
+
+.input-row Static {
+    width: 24; /* Fixed width for labels */
+    height: 1;
+    content-align: right middle;
+    margin-right: 1;
+}
+
+.input-row Input {
+    width: 1fr; /* Takes up the rest of the space */
+}
+
+.switch-container {
+    layout: horizontal;
+    align: center middle;
+    width: 100%;
+    height: auto;
+    margin-bottom: 1;
+}
+
+.switch-group {
+    layout: horizontal;
+    align: center middle;
+    width: auto;
+    height: 1; /* Adjusted to match the new 1-line switch */
+    margin: 0 2;
+}
+
+.switch-group Switch {
+    height: 1;
+    border: none;
+    padding: 0; /* Remove the internal padding */
+    margin-right: 1;
+}
+
+.switch-group Static {
+    width: auto;
+    height: 100%;
+    content-align: center middle;
+}
+
+Collapsible {
+    background: #202020FF;
+}
+
+.feature-header {
+    width: 100%;
+    text-align: center;
+    text-style: bold;
+    margin-bottom: 1;
+}
+
+#feature-list {
+    height: auto;
+    padding: 0;
+}
+
+FeatureWidget {
+    layout: horizontal;
+    height: 1;
+    align: center middle;
+    margin-bottom: 1;
+}
+
+FeatureWidget Checkbox {
+    width: 24;
+}
+
+FeatureWidget Input {
+    width: 1fr;
+}
+
+/* New styles for column layouts */
+.column-container {
+    layout: horizontal;
+    height: auto;
+}
+
+.column {
+    layout: vertical;
+    width: 1fr; /* Make columns share space equally */
+    height: auto;
+    padding: 0 1;
+}

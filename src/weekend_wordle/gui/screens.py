@@ -13,6 +13,7 @@ from board import WordleBoard, GameState
 from sidebar import Sidebar, ResultsTable, StatsTable
 from progress import TitledProgressBar
 from text_processors import TextProcessor, FigletProcessor
+from setup_screen import SetupScreen
 
 class StartupScreen(Screen):
     """The first screen the user sees. Dismissed by any key press."""
@@ -27,7 +28,7 @@ class StartupScreen(Screen):
         )
     def on_key(self, event: events.Key) -> None:
         event.prevent_default()
-        self.app.push_screen(GameScreen())
+        self.app.switch_screen(SetupScreen())
 
 class SettingsScreen(Screen):
     """A placeholder screen for settings."""
