@@ -6,6 +6,9 @@
     padding: 1;
 }
 
+/* --- Base Widget Styles --- */
+
+/* Scoped to LoadingWidget to avoid affecting other potential layouts */
 LoadingWidget {
     border: round gray;
     padding: 0 1; /* top/bottom, left/right */
@@ -13,25 +16,27 @@ LoadingWidget {
     height: auto; /* Allow the widget to size to its content */
 }
 
-.input-row {
+/* CHANGED: Scoped these general utility classes to LoadingWidget to prevent
+   style conflicts with future, unrelated widgets that might use the same class names. */
+LoadingWidget .input-row {
     layout: horizontal;
     height: 1;
     align: center middle;
-    margin-bottom: 1; /* Add space below each input row */
+    margin-bottom: 1;
 }
 
-.input-row Static {
+LoadingWidget .input-row Static {
     width: 24; /* Fixed width for labels */
     height: 1;
     content-align: right middle;
     margin-right: 1;
 }
 
-.input-row Input {
+LoadingWidget .input-row Input {
     width: 1fr; /* Takes up the rest of the space */
 }
 
-.switch-container {
+LoadingWidget .switch-container {
     layout: horizontal;
     align: center middle;
     width: 100%;
@@ -39,30 +44,97 @@ LoadingWidget {
     margin-bottom: 1;
 }
 
-.switch-group {
+LoadingWidget .switch-group {
     layout: horizontal;
     align: center middle;
     width: auto;
-    height: 1; /* Adjusted to match the new 1-line switch */
+    height: 1;
     margin: 0 2;
 }
 
-.switch-group Switch {
+LoadingWidget .switch-group Switch {
     height: 1;
     border: none;
     padding: 0; /* Remove the internal padding */
     margin-right: 1;
 }
 
-.switch-group Static {
+LoadingWidget .switch-group Static {
     width: auto;
     height: 100%;
     content-align: center middle;
 }
 
-Collapsible {
-    background: #202020FF;
+/* --- General Column Layouts --- */
+
+.column-container {
+    layout: horizontal;
+    height: auto;
 }
+
+.column {
+    layout: vertical;
+    width: 1fr; /* Default: Make columns share space equally */
+    height: auto;
+    padding: 0 1;
+}
+
+
+/* --- LoadClassifierWidget Specific Styles --- */
+
+/* Base styles for the Collapsible container itself */
+LoadClassifierWidget Collapsible {
+    background: #202020; /* Dim container when unfocused */
+    background-tint: transparent 0%;
+}
+
+LoadClassifierWidget Collapsible:focus-within {
+    background: #202020; /* Bright container when focused */
+    background-tint: transparent 0%;
+}
+
+/* Make non-input widgets transparent to blend with the container */
+LoadClassifierWidget Collapsible Checkbox,
+LoadClassifierWidget Collapsible .feature-header,
+LoadClassifierWidget Collapsible .switch-group Static {
+    background: transparent;
+}
+
+/* Disable text highlighting when a checkbox is focused. */
+LoadClassifierWidget Collapsible Checkbox:focus {
+    text-style: none;
+}
+
+/* --- Styles for Centering and Sizing ALL Collapsible Content --- */
+
+/* Center ALL column containers within the Collapsible area. */
+LoadClassifierWidget Collapsible .column-container {
+    align-horizontal: center;
+}
+
+/* Give ALL columns within the Collapsible a consistent, smaller fixed width. */
+LoadClassifierWidget Collapsible .column {
+    width: 42;
+}
+
+/* --- Unified Input Styles for the Collapsible Area --- */
+
+/* This single block now controls the size AND color for ALL inputs
+   (both parameter inputs and feature inputs) inside the Collapsible area. */
+LoadClassifierWidget Collapsible Input {
+    width: 15;                /* Shrunk input width */
+    background: #2C2C2C;     /* STATE 1 (Darkest) */
+}
+
+LoadClassifierWidget Collapsible Input:focus-within {
+    background: #3F3F3F;     /* STATE 2 (Medium) */
+}
+
+LoadClassifierWidget Collapsible Input:focus {
+    background: #4F4F4F;     /* STATE 3 (Brightest) */
+}
+
+/* --- Styles for the FEATURE list section --- */
 
 .feature-header {
     width: 100%;
@@ -76,30 +148,13 @@ Collapsible {
     padding: 0;
 }
 
-FeatureWidget {
+ExplicitFeatureWidget {
     layout: horizontal;
     height: 1;
     align: center middle;
     margin-bottom: 1;
 }
 
-FeatureWidget Checkbox {
+ExplicitFeatureWidget Checkbox {
     width: 24;
-}
-
-FeatureWidget Input {
-    width: 1fr;
-}
-
-/* New styles for column layouts */
-.column-container {
-    layout: horizontal;
-    height: auto;
-}
-
-.column {
-    layout: vertical;
-    width: 1fr; /* Make columns share space equally */
-    height: auto;
-    padding: 0 1;
 }

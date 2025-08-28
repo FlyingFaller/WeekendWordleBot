@@ -43,7 +43,7 @@ class LoadingWidget(Container):
         savefile_path: str = "",
         url: str = "",
         refetch: bool = False,
-        save: bool = True,
+        save: bool = False,
         *args,
         **kwargs,
     ) -> None:
@@ -188,7 +188,7 @@ class GetWordFeaturesWidget(GetPatternMatrixWidget):
         return config
 
 
-class FeatureWidget(Container):
+class ExplicitFeatureWidget(Container):
     """A widget for a single feature with a checkbox and a weight input."""
     def __init__(self, name: str, weight: float, enabled: bool = True):
         super().__init__()
@@ -243,17 +243,17 @@ class LoadClassifierWidget(GetPatternMatrixWidget):
                 feature_items = list(self._config['explicit_features'].items())
                 with Vertical(classes="column"):
                     for name, weight in feature_items[:5]:
-                        yield FeatureWidget(name=name, weight=weight)
+                        yield ExplicitFeatureWidget(name=name, weight=weight)
                 with Vertical(classes="column"):
                     for name, weight in feature_items[5:]:
-                        yield FeatureWidget(name=name, weight=weight)
+                        yield ExplicitFeatureWidget(name=name, weight=weight)
 
     def get_config(self) -> dict:
         """Returns the full, nested config dictionary from all UI elements."""
         base_config = super().get_config()
         
         explicit_features = {}
-        for feature_widget in self.query(FeatureWidget):
+        for feature_widget in self.query(ExplicitFeatureWidget):
             if feature_widget.query_one("#enabled_checkbox", Checkbox).value:
                 name = feature_widget.feature_name
                 weight_str = feature_widget.query_one("#weight_input", Input).value
@@ -287,17 +287,18 @@ class SetupScreen(Screen):
         ("enter", "confirm_setup", "Confirm Setup"),
     ]
 
-    def on_click(self, event: events.Click) -> None:
-        """Called when the user clicks the screen. Focuses the screen."""
-        self.set_focus(None)
-
     def compose(self) -> ComposeResult:
         """Create child widgets for the screen."""
         yield Header()
         with VerticalScroll():
             yield Static("Solver Configuration", id="main_title")
             yield GetWordsWidget(
-                title="Valid Guesses",
+                title="Guesses",
+                savefile_path="data/valid_guesses.txt",
+                url="https://gist.github.com/dracos/dd0668f281e685bad51479e5acaadb93/raw/6bfa15d6d5b63840a8e5b64e04b382fdb079/valid-wordle-words.txt",
+            )
+            yield GetWordsWidget(
+                title="Answers",
                 savefile_path="data/valid_guesses.txt",
                 url="https://gist.github.com/dracos/dd0668f281e685bad51479e5acaadb93/raw/6bfa15d6d5b63840a8e5b64e04b382fdb079/valid-wordle-words.txt",
             )
@@ -305,6 +306,19 @@ class SetupScreen(Screen):
                 title="Pattern Matrix",
                 savefile_path="data/full_pattern_matrix.npy",
             )
+            # After this point we have:
+            # Toggleable Load Classifier Widget:
+            #   Load Positive Words:
+            #       Dynamic ListView widget of Collapsibles with option to contain either:
+            #           GetWordsWidget and/or ScrapeWordsWidget
+            #   GetWordFeaturesWidgets
+            #   LoadClassifierWidget
+            #   
+            # FilterWordsWidget:
+            #   Dynamic ListView widget of Collapsibles with options to contain:
+            #       FilterFrequencyWidget and/or FilterSuffixWidget and/or FilterClassifierWidget (if classifier is enabled/loaded)
+
+            # Example usage not part of final:
             yield ScrapeWordsWidget(
                 title="Past Answers (Scraper)",
                 savefile_path="data/past_answers.txt",
