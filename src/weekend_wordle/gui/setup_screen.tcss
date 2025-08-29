@@ -159,7 +159,7 @@ ExplicitFeatureWidget Checkbox {
     width: 24;
 }
 
-/* ITEMS FOR DynamicCollapsibleList */
+/* DynamicCollapsibleList */
 
 /* Style the main list container */
 DynamicCollapsibleList {
@@ -198,4 +198,48 @@ DeletableCollapsible Input:focus-within {
 
 DeletableCollapsible Input:focus {
     background: #4F4F4F;
+}
+
+/* --- ClassifierSection Styles --- */
+ClassifierSection {
+    /* Allows the widget to grow and report its full height */
+    height: auto; 
+}
+ClassifierSection > .title-bar {
+    padding: 1 2 0 2; 
+    height: 2;
+}
+
+ClassifierSection > .title-bar Switch {
+    border: none;
+    padding: 0;
+}
+
+ClassifierSection > .title-bar Rule {
+    width: 1fr;
+    margin: 0 2;
+}
+
+ClassifierSection > .bottom-bar Rule { 
+    width: 1fr;
+    margin: 0 2;
+}
+
+ClassifierSection > .bottom-bar {
+    padding: 0 2 0 2; 
+    height: 1;
+}
+
+/* --- Section Header Styles --- */
+
+/* The container for the header */
+.section-header {
+    padding: 1 2 0 2;
+    height: 2;
+}
+
+/* Make the line fill the remaining space */
+.section-header > Rule {
+    width: 1fr;
+    margin: 0 0 0 2;
 }
