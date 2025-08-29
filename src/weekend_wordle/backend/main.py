@@ -43,16 +43,22 @@ if __name__ == "__main__":
     #             show_stats=True, 
     #             discord_printout=True,
     #             max_guesses = 10)
-
+    
+    # Mandatory loads
     guesses = get_words(refetch=False)
     answers = get_words(refetch=False)
     pattern_matrix = get_pattern_matrix(guesses, answers, savefile = "data/full_pattern_matrix.npy")
+
+    # Classifier Features
+    ## Positive word examples ##
     past_answers = scrape_words(refetch=True, save=False)
     original_answers = get_words(refetch=False, savefile=ORIGINAL_ANSWERS_FILE)
     positive_words = np.union1d(past_answers, original_answers)
 
     word_features = get_word_features(all_words=guesses)
     prediction_func = load_classifier(word_features, positive_words=positive_words, all_words=guesses, retrain=False)
+
+    # Optional filter
     reduced_answers = filter_words_by_probability(prediction_func, guesses)
     play_wordle(
         pattern_matrix, 

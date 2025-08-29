@@ -1,0 +1,103 @@
+/* A stylesheet for the dynamic collapsible list demo app. */
+
+Screen {
+    align: center top;
+    padding: 1;
+}
+
+/* Style the main list container */
+DynamicCollapsibleList {
+    width: 80%;
+    height: auto;
+    border: round gray;
+    padding: 0;
+}
+
+/* Style the Select widget inside the list */
+DynamicCollapsibleList > #add-item-select {
+    margin-bottom: 0;
+}
+
+/* Style the custom collapsible container */
+DeletableCollapsible {
+    background: #202020;
+    background-tint: transparent 0%;
+    margin: 1 0 0 0;
+    border: none;
+    padding: 1;
+}
+
+DeletableCollapsible:focus-within {
+    background: #202020;
+    background-tint: transparent 0%;
+}
+
+DeletableCollapsible Input {
+    background: #2C2C2C;
+}
+
+DeletableCollapsible Input:focus-within {
+    background: #3F3F3F;
+}
+
+DeletableCollapsible Input:focus {
+    background: #4F4F4F;
+}
+
+
+/* LoadingWidget Styling */
+
+LoadingWidget {
+    border: round gray;
+    padding: 0 1; /* top/bottom, left/right */
+    margin: 1 2;
+    height: auto; /* Allow the widget to size to its content */
+}
+
+LoadingWidget .input-row {
+    layout: horizontal;
+    height: 1;
+    align: center middle;
+    margin-bottom: 1;
+}
+
+LoadingWidget .input-row Static {
+    width: 24; /* Fixed width for labels */
+    height: 1;
+    content-align: right middle;
+    margin-right: 1;
+}
+
+LoadingWidget .input-row Input {
+    width: 1fr; /* Takes up the rest of the space */
+}
+
+LoadingWidget .switch-container {
+    layout: horizontal;
+    align: center middle;
+    width: 100%;
+    height: auto;
+    margin-bottom: 1;
+}
+
+LoadingWidget .switch-group {
+    layout: horizontal;
+    align: center middle;
+    width: auto;
+    height: 1;
+    margin: 0 2;
+}
+
+LoadingWidget .switch-group Switch {
+    height: 1;
+    border: none;
+    padding: 0; /* Remove the internal padding */
+    margin-right: 1;
+}
+
+LoadingWidget .switch-group Static {
+    width: auto;
+    height: 100%;
+    content-align: center middle;
+}
+

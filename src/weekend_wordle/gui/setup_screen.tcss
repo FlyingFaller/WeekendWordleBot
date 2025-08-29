@@ -26,7 +26,7 @@ LoadingWidget .input-row {
 }
 
 LoadingWidget .input-row Static {
-    width: 24; /* Fixed width for labels */
+    width: 20; /* Fixed width for labels */
     height: 1;
     content-align: right middle;
     margin-right: 1;
@@ -157,4 +157,45 @@ ExplicitFeatureWidget {
 
 ExplicitFeatureWidget Checkbox {
     width: 24;
+}
+
+/* ITEMS FOR DynamicCollapsibleList */
+
+/* Style the main list container */
+DynamicCollapsibleList {
+    height: auto;
+    border: round gray;
+    padding: 0 1;
+    margin: 1 2;
+}
+
+/* Style the Select widget inside the list */
+DynamicCollapsibleList > #add-item-select {
+    margin-bottom: 0;
+}
+
+/* Style the custom collapsible container */
+DeletableCollapsible {
+    background: #202020;
+    background-tint: transparent 0%;
+    margin: 1 0 0 0;
+    border: none;
+    padding: 1;
+}
+
+DeletableCollapsible:focus-within {
+    background: #202020;
+    background-tint: transparent 0%;
+}
+
+DeletableCollapsible Input {
+    background: #2C2C2C;
+}
+
+DeletableCollapsible Input:focus-within {
+    background: #3F3F3F;
+}
+
+DeletableCollapsible Input:focus {
+    background: #4F4F4F;
 }

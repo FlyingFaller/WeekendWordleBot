@@ -7,10 +7,26 @@ the main game.
 from textual.app import ComposeResult
 from textual.containers import Container, Horizontal, VerticalScroll, Vertical
 from textual.screen import Screen
-from textual.widgets import Header, Footer, Static, Input, Switch, Collapsible, Checkbox
+from textual.widgets import (Header, 
+                             Footer, 
+                             Static, 
+                             Input, 
+                             Switch, 
+                             Collapsible, 
+                             Checkbox, 
+                             Button, 
+                             Select, 
+                             ListItem, 
+                             ListView, 
+                             Label)
+from textual.widget import Widget
 from textual import events
+from textual import on
+from typing import Callable
+from textual.message import Message
 
 from loading_screen import LoadingScreen
+from dynamic_list import DynamicCollapsibleList
 
 # Copied from backend for easy reference in the GUI
 DEFAULT_CONFIG = {
@@ -276,7 +292,6 @@ class LoadClassifierWidget(GetPatternMatrixWidget):
         }
         return base_config
 
-
 class SetupScreen(Screen):
     """A screen to configure the Wordle solver setup."""
 
@@ -311,7 +326,7 @@ class SetupScreen(Screen):
             #   Load Positive Words:
             #       Dynamic ListView widget of Collapsibles with option to contain either:
             #           GetWordsWidget and/or ScrapeWordsWidget
-            #   GetWordFeaturesWidgets
+            #   GetWordFeaturesWidget
             #   LoadClassifierWidget
             #   
             # FilterWordsWidget:
@@ -319,6 +334,21 @@ class SetupScreen(Screen):
             #       FilterFrequencyWidget and/or FilterSuffixWidget and/or FilterClassifierWidget (if classifier is enabled/loaded)
 
             # Example usage not part of final:
+            default_widgets = [('Default General Load', LoadingWidget(title='')),
+                            ('Default Get Words', GetWordsWidget(title='')),
+                            ('Default Scrape Words', ScrapeWordsWidget(title=''))]
+
+            widget_constructors: dict[str, Callable[[], Widget]] = {
+                "General Load": lambda: LoadingWidget(title="File Source"),
+                "Get Words": lambda: GetWordsWidget(title="Get Words Config"),
+                "Scrape Words": lambda: ScrapeWordsWidget(title="Scrape Words Config"),
+            }
+            yield DynamicCollapsibleList(
+                title='Dynamic Collapsible List',
+                widget_constructors=widget_constructors,
+                default_widgets = default_widgets,
+            )
+
             yield ScrapeWordsWidget(
                 title="Past Answers (Scraper)",
                 savefile_path="data/past_answers.txt",

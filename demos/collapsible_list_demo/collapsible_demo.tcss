@@ -1,0 +1,130 @@
+/*
+ * A stylesheet for the closable collapsible demo app.
+ */
+
+Screen {
+    /* Align content to the top-center of the screen */
+    align: center top;
+    padding: 1;
+}
+
+CollapsibleList {
+    /* The list should take up most of the screen width */
+    width: 80%;
+    /* height: auto is crucial for it to resize with its children */
+    height: auto;
+    /* This is crucial for making the absolute positioning of child
+     * buttons relative to this container, not the screen. */
+    position: relative;
+    /* Add a round border and padding */
+    border: round gray;
+    padding: 1;
+}
+
+/* Style the Select widget that is a direct child of the list */
+CollapsibleList > #add-item-select {
+    margin-bottom: 0;
+}
+
+CollapsibleWithClose {
+    height: auto;
+    background: #202020; /* Dim container when unfocused */
+    background-tint: transparent 0%;
+    margin: 1 0 0 0;
+    border: none;
+    padding: 1;
+}
+
+CollapsibleWithClose:focus-within {
+    background: #202020; /* Bright container when focused */
+    background-tint: transparent 0%;
+}
+
+CollapsibleWithClose Input {
+    background: #2C2C2C;
+}
+
+CollapsibleWithClose Input:focus-within {
+    background: #3F3F3F;
+}
+
+CollapsibleWithClose Input:focus {
+    background: #4F4F4F;
+}
+
+/* Style our custom close button using a class selector */
+.close-button {
+    /*
+     * 'absolute' positioning takes the widget out of the normal layout flow.
+     * 'layer: top' ensures it renders on top of other widgets.
+     * The position is set in the Python code via the 'offset' style.
+    */
+    position: absolute;
+    layer: top;
+
+    /* Make it a small, minimal box */
+    width: 3;
+    height: 1;
+    min-width: 3;
+
+    /* Remove the border to make it look less like a standard button */
+    border: none;
+    outline: none;
+
+    /* Center the 'x' text inside the button */
+    content-align: center middle;
+}
+
+LoadingWidget {
+    border: round gray;
+    padding: 0 1; /* top/bottom, left/right */
+    margin: 1 2;
+    height: auto; /* Allow the widget to size to its content */
+}
+
+LoadingWidget .input-row {
+    layout: horizontal;
+    height: 1;
+    align: center middle;
+    margin-bottom: 1;
+}
+
+LoadingWidget .input-row Static {
+    width: 24; /* Fixed width for labels */
+    height: 1;
+    content-align: right middle;
+    margin-right: 1;
+}
+
+LoadingWidget .input-row Input {
+    width: 1fr; /* Takes up the rest of the space */
+}
+
+LoadingWidget .switch-container {
+    layout: horizontal;
+    align: center middle;
+    width: 100%;
+    height: auto;
+    margin-bottom: 1;
+}
+
+LoadingWidget .switch-group {
+    layout: horizontal;
+    align: center middle;
+    width: auto;
+    height: 1;
+    margin: 0 2;
+}
+
+LoadingWidget .switch-group Switch {
+    height: 1;
+    border: none;
+    padding: 0; /* Remove the internal padding */
+    margin-right: 1;
+}
+
+LoadingWidget .switch-group Static {
+    width: auto;
+    height: 100%;
+    content-align: center middle;
+}
