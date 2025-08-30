@@ -1,0 +1,5 @@
+Screen {
+    background: #121213;
+    color: $text;
+    layout: vertical;
+}

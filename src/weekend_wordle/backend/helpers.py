@@ -8,7 +8,7 @@ from numba import njit
 import wordfreq
 import nltk
 import hashlib
-from cache import Cache
+from weekend_wordle.backend.cache import Cache
 from bs4 import BeautifulSoup
 from numba.types import int64
 from numba import njit

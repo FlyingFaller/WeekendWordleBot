@@ -1,44 +1,14 @@
-"""
-Defines the different screens for the Wordle application.
-"""
 from textual.app import ComposeResult
-from textual.containers import Container, Vertical
+from textual.containers import Container
 from textual.screen import Screen
-from textual.widgets import Footer, Header, ProgressBar, DataTable, Static, Label
+from textual.widgets import Footer, Header, ProgressBar, DataTable
 from textual import events
-from textual_pyfiglet import FigletWidget
 
 # Import refactored components
-from board import WordleBoard, GameState
-from sidebar import Sidebar, ResultsTable, StatsTable
-from progress import TitledProgressBar
-from text_processors import TextProcessor, FigletProcessor
-from setup_screen import SetupScreen
-
-class StartupScreen(Screen):
-    """The first screen the user sees. Dismissed by any key press."""
-    def compose(self) -> ComposeResult:
-        yield Vertical(
-            FigletWidget(
-                "> Weekend Wordle", font="georgia11", justify="center",
-                colors=["#4795de", "#bb637a"], horizontal=True
-            ),
-            Label("Press any key to start", classes="subtitle"),
-            id="startup-dialog",
-        )
-    def on_key(self, event: events.Key) -> None:
-        event.prevent_default()
-        self.app.switch_screen(SetupScreen())
-
-class SettingsScreen(Screen):
-    """A placeholder screen for settings."""
-    def compose(self) -> ComposeResult:
-        yield Vertical(
-            Label("Settings", id="title"),
-            Label("This screen is a placeholder for future settings.", classes="subtitle"),
-            Label("Press Ctrl+S to save and close.", classes="subtitle"),
-            id="settings-dialog",
-        )
+from weekend_wordle.gui.game.board_widget import WordleBoard, GameState
+from weekend_wordle.gui.game.sidebar_widget import Sidebar, ResultsTable, StatsTable
+from weekend_wordle.gui.game.progress_widget import TitledProgressBar
+from weekend_wordle.gui.game.text_processors import TextProcessor, FigletProcessor
 
 class GameScreen(Screen):
     """The main screen for the Wordle game, acting as an orchestrator."""
@@ -46,6 +16,7 @@ class GameScreen(Screen):
     # --- UI Settings ---
     use_figlet = True
     TILE_ASPECT_RATIO = 2.0
+    CSS_PATH = "game_screen.tcss"
 
     def __init__(self):
         super().__init__()

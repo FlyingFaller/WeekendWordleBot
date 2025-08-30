@@ -1,0 +1,26 @@
+Screen {
+    background: #121213;
+    color: $text;
+    layout: vertical;
+}
+
+#startup-dialog {
+    align: center middle;
+    width: 100%;
+    height: 100%;
+}
+
+#startup-dialog {
+    align: center middle;
+}
+
+.subtitle {
+    text-style: italic;
+}
+
+#startup-dialog > .subtitle {
+    dock: bottom;
+    width: 100%;
+    content-align: center middle;
+    margin: 0 0 2 0; 
+}

@@ -11,38 +11,6 @@ Screen {
     height: 1fr;
 }
 
-/* --- New Startup and Settings Screen Styling --- */
-#startup-dialog, #settings-dialog {
-    align: center middle;
-    width: 100%;
-    height: 100%;
-}
-
-#startup-dialog {
-    align: center middle;
-}
-
-#startup-dialog FigletWidget {
-    /* No special alignment rules needed here anymore */
-}
-
-#title {
-    padding-bottom: 2;
-    text-style: bold;
-}
-
-.subtitle {
-    text-style: italic;
-}
-
-#startup-dialog > .subtitle {
-    dock: bottom;
-    width: 100%;
-    content-align: center middle;
-    margin: 0 0 2 0; 
-}
-
-
 /* --- Sidebar Styling --- */
 #sidebar-container {
     width: 1fr;
@@ -58,12 +26,10 @@ DataTable {
     layout: grid;
 }
 
-/* UPDATED: Renamed from StatsTable */
 ResultsTable {
     border: round gray;
 }
 
-/* UPDATED: Renamed from StatsDisplay */
 StatsTable {
     border: round gray;
 }

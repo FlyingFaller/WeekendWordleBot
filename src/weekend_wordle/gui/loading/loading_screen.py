@@ -7,9 +7,11 @@ being loaded and processed.
 from textual.screen import Screen
 from textual.widgets import Header, Footer, Static
 from textual.app import ComposeResult
+from weekend_wordle.gui.game.game_screen import GameScreen
 
 class LoadingScreen(Screen):
     """A screen to display while the backend is loading data."""
+    CSS_PATH = "loading_screen.tcss"
 
     def compose(self) -> ComposeResult:
         """Create child widgets for the screen."""
@@ -33,5 +35,4 @@ class LoadingScreen(Screen):
         
         We import the GameScreen here locally to avoid circular dependencies.
         """
-        from screens import GameScreen
         self.app.switch_screen(GameScreen())

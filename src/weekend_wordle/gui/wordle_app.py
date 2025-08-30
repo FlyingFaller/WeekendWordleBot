@@ -5,12 +5,13 @@ This script sets up the Textual application and manages the different screens.
 """
 
 from textual.app import App
-from screens import StartupScreen, SettingsScreen
+from weekend_wordle.gui.startup.startup_screen import StartupScreen
+from weekend_wordle.gui.settings.settings_screen import SettingsScreen
 
 class WordleApp(App):
     """The main application class for the Wordle Solver."""
 
-    CSS_PATH = "wordle_app.tcss"
+    # CSS_PATH = "wordle_app.tcss"
     
     # Define keybindings that work across all screens
     BINDINGS = [
@@ -35,7 +36,10 @@ class WordleApp(App):
             self.push_screen(SettingsScreen())
             self.show_settings_screen = True
 
-
-if __name__ == "__main__":
+def run_app():
+    print('Starting!')
     app = WordleApp()
     app.run()
+
+if __name__ == "__main__":
+    run_app()

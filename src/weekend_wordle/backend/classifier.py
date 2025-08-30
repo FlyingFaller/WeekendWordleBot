@@ -14,7 +14,7 @@ DEFAULT_CONFIG = {
     'max_iterations': 1000,
     'convergence_tolerance': 1e-2,
     'random_seed': None,
-    'evalutation_threshold': 0.07,
+    'evaluation_threshold': 0.07,
     'explicit_features': {
         'frequency': 1.0, 
         'is_regular_plural': 1.0, 
