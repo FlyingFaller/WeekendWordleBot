@@ -1,7 +1,7 @@
 import numpy as np
 from numba import njit, prange, get_num_threads, get_thread_id
-from helpers import *
-from cache import *
+from weekend_wordle.backend.helpers import *
+from weekend_wordle.backend.cache import *
 
 @njit(cache=False)
 def recursive_engine(pattern_matrix: np.ndarray, 

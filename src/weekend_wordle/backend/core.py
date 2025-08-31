@@ -1,8 +1,8 @@
 import numpy as np
 import time
 import wordfreq
-from helpers import *
-from engine import *
+from weekend_wordle.backend.helpers import *
+from weekend_wordle.backend.engine import *
 from typing import Callable
 
 class InvalidWordError(ValueError):

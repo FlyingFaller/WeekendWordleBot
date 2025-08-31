@@ -1,9 +1,9 @@
-from helpers import *
-from tests import *
-from core import *
-from engine import *
-from game_runtime import *
-from classifier import *
+from weekend_wordle.backend.helpers import *
+from weekend_wordle.backend.tests import *
+from weekend_wordle.backend.core import *
+from weekend_wordle.backend.engine import *
+from weekend_wordle.backend.game_runtime import *
+from weekend_wordle.backend.classifier import *
 
 if __name__ == "__main__":
     import json

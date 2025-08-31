@@ -1,6 +1,6 @@
-from helpers import *
-from core import *
-from engine import *
+from weekend_wordle.backend.helpers import *
+from weekend_wordle.backend.core import *
+from weekend_wordle.backend.engine import *
 
 import numpy as np
 from tqdm import tqdm

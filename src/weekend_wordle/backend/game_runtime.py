@@ -1,7 +1,7 @@
-from helpers import *
-from tests import *
-from core import *
-from engine import *
+from weekend_wordle.backend.helpers import *
+from weekend_wordle.backend.tests import *
+from weekend_wordle.backend.core import *
+from weekend_wordle.backend.engine import *
 from typing import Callable
 
 def play_wordle(pattern_matrix: np.ndarray[np.uint8], 
