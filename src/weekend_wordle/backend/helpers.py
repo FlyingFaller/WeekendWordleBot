@@ -238,7 +238,7 @@ def get_minimum_freq(words: np.ndarray[str]) -> tuple[float, int, str]:
     word_idx = np.argmin(frequencies)
     return (np.min(frequencies), word_idx, words[word_idx])
 
-def filter_words_by_occurance(words: np.ndarray, min_freq: float = 1e-7) -> np.ndarray:
+def filter_words_by_frequency(words: np.ndarray, min_freq: float = 1e-7) -> np.ndarray:
     common_words = []
     print(f"Filtering {len(words)} words with a minimum frequency of {min_freq}...")
     

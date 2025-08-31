@@ -1,8 +1,9 @@
 from typing import Callable
 
+from rich.text import Text
 from textual import events
 from textual.app import ComposeResult
-from textual.containers import Container, VerticalScroll
+from textual.containers import Container, VerticalScroll, Vertical
 from textual.message import Message
 from textual.widget import Widget
 from textual.widgets import (
@@ -11,6 +12,10 @@ from textual.widgets import (
     Select,
     Static,
 )
+
+class NoFocusButton(Button):
+    """A button that cannot be focused."""
+    can_focus = False # lowercase is correct, uppercase will do nothing.
 
 class HoverSelect(Select):
     """A Select widget that opens its dropdown on hover."""
@@ -41,9 +46,6 @@ class DeletableCollapsible(Collapsible):
         margin: 0 1; /* Margin for spacing */
     }
     """
-    class NoFocusButton(Button):
-        """A button that cannot be focused."""
-        can_focus = False # lowercase is correct, uppercase will do nothing.
 
     class Delete(Message):
         """Posted when the delete button is clicked.
@@ -66,7 +68,7 @@ class DeletableCollapsible(Collapsible):
             # The original title widget is used here
             yield self._title
             # The new delete button
-            yield self.NoFocusButton("X", id="delete-button", variant='error') 
+            yield NoFocusButton("X", id="delete-button", variant='error') 
 
         # The original contents container is used here
         with self.Contents():
@@ -87,44 +89,64 @@ class DynamicCollapsibleList(VerticalScroll):
     def __init__(
         self,
         *,
-        title: str,
-        widget_constructors: dict[str, Callable[[], Widget]],
+        title: str = None,
+        widget_constructors: dict[str, Callable[[], Widget]] = {},
         default_widgets: list[tuple[str, Widget]] = [],
         **kwargs
     ) -> None:
         super().__init__(**kwargs)
         self.border_title = title
-        self.widget_constructors = widget_constructors
         self.default_widgets = default_widgets
+        self._full_widget_constructors = widget_constructors.copy()
+        self._disabled_options: set[str] = set()
+
 
     def on_mount(self) -> None:
         """Called when the widget is mounted to populate default items."""
         for item_name, content_widget in self.default_widgets:
             self.add_item(item_name, content_widget)
 
+    def _generate_select_options(self) -> list[tuple[Text | str, str]]:
+        """Generates the list of options for the Select widget."""
+        options = []
+        for name in self._full_widget_constructors:
+            if name in self._disabled_options:
+                # If disabled, create a styled Text object
+                prompt = Text(name, style="strike #888888")
+                options.append((prompt, name))
+            else:
+                # Otherwise, use a simple string
+                options.append((name, name))
+        return options
+
     def compose(self) -> ComposeResult:
         """Creates the Select control for adding new items."""
-        select_options = [(name, name) for name in self.widget_constructors.keys()]
         yield HoverSelect(
-            options=select_options,
+            options=self._generate_select_options(),
             prompt="Add new item...",
             allow_blank=True,
             id="add-item-select",
+            compact=True
         )
 
     def on_select_changed(self, event: Select.Changed) -> None:
         """Handles when a Select option is chosen."""
         event.stop()
+
         if event.value != Select.BLANK:
             item_name = str(event.value)
-            # Get the constructor from the dictionary
-            constructor = self.widget_constructors[item_name]
-            # Create an instance of the content widget
-            content_widget = constructor()
-            # Add the item
-            self.add_item(item_name, content_widget)
-        # Clear the select prompt
+
+            # Prevent adding the item if it's currently disabled.
+            if item_name in self._disabled_options:
+                self.log(f"Attempted to select disabled item: '{item_name}'")
+            else:
+                constructor = self._full_widget_constructors[item_name]
+                content_widget = constructor()
+                self.add_item(item_name, content_widget)
+
+        # Always clear the select prompt after a selection attempt.
         event.control.clear()
+
 
     def add_item(self, item_name: str, content_widget: Widget) -> None:
         """Handles adding a new item"""
@@ -140,6 +162,34 @@ class DynamicCollapsibleList(VerticalScroll):
         event.stop()
         self.log(f"Removing item: '{event.collapsible.title}'")
         event.collapsible.remove()
+
+    def _update_select_options(self) -> None:
+        """Helper method to refresh the options in the Select widget."""
+        select_widget = self.query_one("#add-item-select", HoverSelect)
+        select_widget.set_options(self._generate_select_options())
+
+    def update_classifier_dependency(self, classifier_enabled: bool) -> None:
+        """
+        Updates available filters based on the classifier's state.
+        Disables the 'Classifier Probability Filter' if the classifier is disabled.
+        """
+        filter_name = "Classifier Probability Filter"
+
+        if classifier_enabled:
+            # Mark the option as enabled by removing it from the disabled set.
+            self._disabled_options.discard(filter_name)
+        else:
+            # Mark the option as disabled.
+            self._disabled_options.add(filter_name)
+            
+            # Also, find and remove any existing instance of this filter from the list.
+            for item in self.query(DeletableCollapsible):
+                if item.title == filter_name:
+                    item.remove()
+                    self.log(f"Automatically removed '{filter_name}' as classifier is disabled.")
+        
+        # Refresh the options displayed in the dropdown to reflect the new state.
+        self._update_select_options()
 
     def get_config(self) -> list[dict]:
             """
@@ -160,3 +210,29 @@ class DynamicCollapsibleList(VerticalScroll):
                     config["widget_name"] = item.title
                     config_list.append(config)
             return config_list
+    
+class SimpleDynamicListWidget(Vertical):
+    """A widget that dynamically manages a list of other widgets."""
+
+    def __init__(
+        self,
+        item_factory,
+        items: list | None = None,
+        *args,
+        **kwargs,
+    ) -> None:
+        super().__init__(*args, **kwargs)
+        self.item_factory = item_factory
+        self._items = items or []
+
+    def compose(self) -> ComposeResult:
+        """Create child widgets for the dynamic list."""
+        for item_data in self._items:
+            yield self.item_factory(item_data)
+
+    def get_items(self) -> list[Widget]:
+        """Returns the list of item widgets."""
+        # We need to filter out any potential non-item widgets if the list gets complex
+        return [
+            widget for widget in self.children if isinstance(widget, Widget)
+        ]

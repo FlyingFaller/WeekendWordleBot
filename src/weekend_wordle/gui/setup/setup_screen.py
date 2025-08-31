@@ -7,20 +7,29 @@ the main game.
 from textual.app import ComposeResult
 from textual.containers import Container, Horizontal, VerticalScroll
 from textual.screen import Screen
+from textual.message import Message
 from textual.widgets import (Header, 
                              Footer, 
                              Static,
                              Switch, 
                              Rule,
-                             Label)
+                             Label,
+                             Collapsible,
+                             RadioSet,
+                             RadioButton)
 
 from weekend_wordle.gui.loading.loading_screen import LoadingScreen
 from weekend_wordle.gui.setup.dynamic_list_widget import DynamicCollapsibleList
 from weekend_wordle.gui.setup.loading_widget import (GetWordsWidget, 
-                                  ScrapeWordsWidget, 
-                                  GetWordFeaturesWidget, 
-                                  LoadClassifierWidget,
-                                  GetPatternMatrixWidget)
+                                                     ScrapeWordsWidget, 
+                                                     GetWordFeaturesWidget, 
+                                                     LoadClassifierWidget,
+                                                     GetPatternMatrixWidget)
+
+from weekend_wordle.gui.setup.filter_widget import (FilterSuffixWidget,
+                                                    FilterFrequencyWidget,
+                                                    FilterPOSWidget,
+                                                    FilterProbabilityWidget)
 
 from weekend_wordle.backend.helpers import (ORIGINAL_ANSWERS_FILE,
                                             ORIGINAL_ANSWERS_URL,
@@ -28,11 +37,23 @@ from weekend_wordle.backend.helpers import (ORIGINAL_ANSWERS_FILE,
                                             PAST_ANSWERS_URL,
                                             VALID_GUESSES_FILE,
                                             VALID_GUESSES_URL,
-                                            DEFAULT_PATTERN_MATRIX_FILE)
+                                            DEFAULT_PATTERN_MATRIX_FILE,
+                                            ENGLISH_DICTIONARY_FILE)
 
 
 class ClassifierSection(Container):
     """A widget for configuring the entire classifier training pipeline."""
+
+    class ClassifierStateChanged(Message):
+        """Posted when the classifier section is enabled or disabled."""
+        def __init__(self, enabled: bool) -> None:
+            self.enabled = enabled
+            super().__init__()
+
+    def __init__(self, default_state=True, collapse_on_disable=True) -> None:
+        super().__init__()
+        self._default_state = default_state
+        self._collapse_on_disable = collapse_on_disable
 
     def compose(self) -> ComposeResult:
         """Create the child widgets for the classifier section."""
@@ -41,19 +62,21 @@ class ClassifierSection(Container):
         with Horizontal(classes="title-bar"):
             yield Label("Load Optional Classifier")
             yield Rule()
-            yield Switch(id="enable-switch")
+            yield Switch(id="enable-switch", value=self._default_state)
         
         # The rest of the content widgets...
         widget_constructors = {
-            'Get Words': lambda: GetWordsWidget(title='Get Words'),
-            'Scrape Words': lambda: ScrapeWordsWidget(title='Scrape Words')
+            'Get Words': lambda: GetWordsWidget(),
+            'Scrape Words': lambda: ScrapeWordsWidget()
         }
-        default_widgets = [('Original Answers', GetWordsWidget(title='Get Words', savefile_path=ORIGINAL_ANSWERS_FILE, url=ORIGINAL_ANSWERS_URL, )),
-                           ('Past Answers', ScrapeWordsWidget(title='Scrape Words', savefile_path=PAST_ANSWERS_FILE, url=PAST_ANSWERS_URL, refetch=True))]
+        default_widgets = [('Original Answers', GetWordsWidget(savefile_path=ORIGINAL_ANSWERS_FILE, url=ORIGINAL_ANSWERS_URL, )),
+                           ('Past Answers', ScrapeWordsWidget(savefile_path=PAST_ANSWERS_FILE, url=PAST_ANSWERS_URL, refetch=True))]
+        
         yield DynamicCollapsibleList(title='Positive Words', 
                                      widget_constructors=widget_constructors,
                                      default_widgets=default_widgets,
                                      id="positive-words-list")
+        
         yield GetWordFeaturesWidget(title='Word Features',id="word-features")
         yield LoadClassifierWidget(title='Load Classifier', id="load-classifier")
 
@@ -80,39 +103,65 @@ class ClassifierSection(Container):
             self.query_one("#positive-words-list"),
             self.query_one("#word-features"),
             self.query_one("#load-classifier"),
-            # self.query_one("#bottom-rule"),
         ]
-        
-        # Loop through them and set their visibility.
-        # The 'display' property is the most effective way to hide widgets.
-        for widget in widgets_to_toggle:
-            widget.display = enabled
+        if self._collapse_on_disable:
+            # Loop through them and set their visibility.
+            # The 'display' property is the most effective way to hide widgets.
+            for widget in widgets_to_toggle:
+                widget.display = enabled
+        else:            
+            # Loop through the main widgets and set their disabled state.
+            # If the switch is enabled, `disabled` is False.
+            # If the switch is disabled, `disabled` is True.
+            for widget in widgets_to_toggle:
+                widget.disabled = not enabled
 
-    # def toggle_widgets(self, enabled: bool) -> None:
-    #     """
-    #     A helper method to enable/disable the classifier configuration widgets
-    #     and collapse any inner Collapsible widgets when disabling.
-    #     """
-    #     # We don't need to toggle the Rule, so it's removed from this list.
-    #     widgets_to_toggle = [
-    #         self.query_one("#positive-words-list"),
-    #         self.query_one("#word-features"),
-    #         self.query_one("#load-classifier"),
-    #     ]
-        
-    #     # Loop through the main widgets and set their disabled state.
-    #     # If the switch is enabled, `disabled` is False.
-    #     # If the switch is disabled, `disabled` is True.
-    #     for widget in widgets_to_toggle:
-    #         widget.disabled = not enabled
+            # If the section is being disabled, find and collapse all
+            # Collapsible widgets within the main containers.
+            if not enabled:
+                for widget in widgets_to_toggle:
+                    # The .query() method finds all descendant widgets of a certain type.
+                    for collapsible in widget.query(Collapsible):
+                        collapsible.collapsed = True
 
-    #     # If the section is being disabled, find and collapse all
-    #     # Collapsible widgets within the main containers.
-    #     if not enabled:
-    #         for widget in widgets_to_toggle:
-    #             # The .query() method finds all descendant widgets of a certain type.
-    #             for collapsible in widget.query(Collapsible):
-    #                 collapsible.collapsed = True
+        self.post_message(self.ClassifierStateChanged(enabled))
+
+class AnswerSortWidget(Static):
+    """A widget to select the sorting method for answers."""
+    class CustomRadioButton(RadioButton):
+        BUTTON_INNER = '\u25FC'
+
+    def __init__(self, title: str = None, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.border_title = title
+
+    def compose(self) -> ComposeResult:
+        """Create the child widgets for the answer sort widget."""
+        with RadioSet():
+            yield self.CustomRadioButton("Word Frequency", id="word_frequency")
+            yield self.CustomRadioButton("Classifier Probability", value=True, id="classifier_probability")
+
+    def update_classifier_dependency(self, classifier_enabled: bool) -> None:
+        """Disables and resets the classifier sort option based on classifier state."""
+        classifier_button = self.query_one("#classifier_probability", RadioButton)
+        classifier_button.disabled = not classifier_enabled
+
+        # If the classifier was disabled, check if we need to reset the selection.
+        if not classifier_enabled:
+            radio_set = self.query_one(RadioSet)
+            # If the (now disabled) classifier button is still pressed...
+            if radio_set.pressed_button and radio_set.pressed_button.id == "classifier_probability":
+                # ...then switch the selection to the word frequency button.
+                word_freq_button = self.query_one("#word_frequency", RadioButton)
+                word_freq_button.value = True
+
+    def get_config(self) -> str:
+        """Returns the selected sort method as a string."""
+        radio_set = self.query_one(RadioSet)
+        # Check which button is pressed and return the corresponding value
+        if radio_set.pressed_button and radio_set.pressed_button.id == "classifier_probability":
+            return "Classifier Probability"
+        return "Word Frequency"
 
 class SetupScreen(Screen):
     """A screen to configure the Wordle solver setup."""
@@ -125,7 +174,7 @@ class SetupScreen(Screen):
     ]
 
     def compose(self) -> ComposeResult:
-        """Create child widgets for the screen."""
+        # """Create child widgets for the screen."""
         yield Header()
 
         with VerticalScroll():
@@ -149,47 +198,45 @@ class SetupScreen(Screen):
                 title="Pattern Matrix",
                 savefile_path=DEFAULT_PATTERN_MATRIX_FILE,
             )
-            # After this point we have:
-            # Toggleable Load Classifier Widget:
-            #   Load Positive Words:
-            #       Dynamic ListView widget of Collapsibles with option to contain either:
-            #           GetWordsWidget and/or ScrapeWordsWidget
-            #   GetWordFeaturesWidget
-            #   LoadClassifierWidget
-            #   
-            # FilterWordsWidget:
-            #   Dynamic ListView widget of Collapsibles with options to contain:
-            #       FilterFrequencyWidget and/or FilterSuffixWidget and/or FilterClassifierWidget (if classifier is enabled/loaded)
+            
+            yield ClassifierSection(collapse_on_disable=False)
 
-            # # Example usage not part of final:
-            # default_widgets = [('Default General Load', LoadingWidget(title='')),
-            #                 ('Default Get Words', GetWordsWidget(title='')),
-            #                 ('Default Scrape Words', ScrapeWordsWidget(title=''))]
+            with Horizontal(classes="section-header"):
+                yield Label("Apply Optional Filters to Answer Set")
+                yield Rule()
 
-            # widget_constructors: dict[str, Callable[[], Widget]] = {
-            #     "General Load": lambda: LoadingWidget(title="File Source"),
-            #     "Get Words": lambda: GetWordsWidget(title="Get Words Config"),
-            #     "Scrape Words": lambda: ScrapeWordsWidget(title="Scrape Words Config"),
-            # }
+            filter_constructors = {'Suffix Filter': lambda: FilterSuffixWidget(suffixes=[('s', 's'), ('d', 'r', 'w', 'n'), 'es', 'ed'],
+                                                                               savefile_path=ENGLISH_DICTIONARY_FILE),
+                                   'Frequency Filter': lambda: FilterFrequencyWidget(),
+                                   'POS Filter': lambda: FilterPOSWidget(),
+                                   'Classifier Probability Filter': lambda: FilterProbabilityWidget()}
+            
+            default_filters = [('Classifier Probability Filter', FilterProbabilityWidget())]
 
-            # yield Static("─" * 100, classes="separator")
-            yield ClassifierSection()
-            # yield Static("─" * 100, classes="separator")
+            yield DynamicCollapsibleList(widget_constructors=filter_constructors,
+                                         default_widgets=default_filters,
+                                         id="answer_filters_list")
 
-            # yield ScrapeWordsWidget(
-            #     title="Past Answers (Scraper)",
-            #     savefile_path="data/past_answers.txt",
-            #     url="https://www.rockpapershotgun.com/wordle-past-answers",
-            # )
-            # yield GetWordFeaturesWidget(
-            #     title="Word Features",
-            #     savefile_path="data/word_features.pkl",
-            # )
-            # yield LoadClassifierWidget(
-            #     title="Wordle Classifier",
-            #     savefile_path="data/wordle_classifier.pkl",
-            # )
+            with Horizontal(classes="section-header"):
+                yield Label("Select Optional Answer Sort")
+                yield Rule()
+
+            yield AnswerSortWidget()
+
         yield Footer()
+
+    def on_classifier_section_classifier_state_changed(
+        self, message: ClassifierSection.ClassifierStateChanged
+    ) -> None:
+        """A message handler to update widgets when the classifier is toggled."""
+        # Update the sort widget
+        answer_sort_widget = self.query_one(AnswerSortWidget)
+        answer_sort_widget.update_classifier_dependency(message.enabled)
+
+        # Update the filter list widget
+        filter_list = self.query_one("#answer_filters_list", DynamicCollapsibleList)
+        filter_list.update_classifier_dependency(message.enabled)
+
 
     def action_confirm_setup(self) -> None:
         """

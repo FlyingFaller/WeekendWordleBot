@@ -14,7 +14,7 @@ class LoadingWidget(Container):
 
     def __init__(
         self,
-        title: str,
+        title: str = None,
         savefile_path: str = "",
         url: str = "",
         refetch: bool = False,
