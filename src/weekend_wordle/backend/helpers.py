@@ -13,9 +13,12 @@ from numba.types import int64
 from numba import njit
 from numba.experimental import jitclass
 import time
+from pathlib import Path
 
 from weekend_wordle.backend.cache import Cache
 from weekend_wordle.backend.messenger import UIMessenger, ConsoleMessenger
+
+from weekend_wordle import PROJECT_ROOT
 
 ### DEFAULTS ###
 VALID_GUESSES_URL = "https://gist.github.com/dracos/dd0668f281e685bad51479e5acaadb93/raw/6bfa15d263d6d5b63840a8e5b64e04b382fdb079/valid-wordle-words.txt"
@@ -165,6 +168,7 @@ def get_words(savefile=VALID_GUESSES_FILE,
     Retrieves the word list, filtering for lowercase a-z words.
     It fetches from a local file if it exists, otherwise from a URL.
     """
+
     messenger = get_messenger(messenger)
     # --- Path 1: Reading from local file ---
     if not refetch and os.path.exists(savefile):
@@ -589,3 +593,13 @@ def solver_progress_bar(progress_array: np.ndarray[np.float64],
     pbar.n = total
     pbar.refresh()
     pbar.close()
+
+def get_abs_path(usr_path_str: str, root_path: Path = PROJECT_ROOT) -> Path:
+    user_path = Path(usr_path_str)
+
+    if user_path.is_absolute():
+        # If it's absolute, use it directly.
+        return user_path
+    else:
+        # If it's relative, assume it's relative to the project root.
+        return root_path / user_path
