@@ -119,7 +119,7 @@ class TextualMessenger:
 
     def post_message(self, message: Message) -> None:
         """Helper to post a message from the worker thread."""
-        self._worker.post_message(message)
+        self._worker._node.post_message(message)
 
     def log(self, message: str) -> None:
         """Posts a Log message to the screen."""
