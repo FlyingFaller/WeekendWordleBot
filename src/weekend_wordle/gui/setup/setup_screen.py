@@ -39,7 +39,7 @@ from weekend_wordle.backend.helpers import (ORIGINAL_ANSWERS_FILE,
                                             VALID_GUESSES_URL,
                                             DEFAULT_PATTERN_MATRIX_FILE,
                                             ENGLISH_DICTIONARY_FILE)
-
+DATA_ROOT = 'C:/Users/PELICAN-5/Documents/WeekendWordleBot/'
 
 class ClassifierSection(Container):
     """A widget for configuring the entire classifier training pipeline."""
@@ -74,16 +74,20 @@ class ClassifierSection(Container):
             'Get Words': lambda: GetWordsWidget(),
             'Scrape Words': lambda: ScrapeWordsWidget()
         }
-        default_widgets = [('Original Answers', GetWordsWidget(savefile_path=ORIGINAL_ANSWERS_FILE, url=ORIGINAL_ANSWERS_URL, )),
-                           ('Past Answers', ScrapeWordsWidget(savefile_path=PAST_ANSWERS_FILE, url=PAST_ANSWERS_URL, refetch=True))]
+        default_widgets = [('Original Answers', GetWordsWidget(savefile_path=DATA_ROOT+ORIGINAL_ANSWERS_FILE, url=ORIGINAL_ANSWERS_URL, )),
+                           ('Past Answers', ScrapeWordsWidget(savefile_path=DATA_ROOT+PAST_ANSWERS_FILE, url=PAST_ANSWERS_URL, refetch=True))]
         
         yield DynamicCollapsibleList(title='Positive Words', 
                                      widget_constructors=widget_constructors,
                                      default_widgets=default_widgets,
                                      id="positive_words_list")
         
-        yield GetWordFeaturesWidget(title='Word Features',id="word_features")
-        yield LoadModelWidget(title='Load Model', id="load_model")
+        yield GetWordFeaturesWidget(title='Word Features',
+                                    id="word_features",
+                                    savefile_path=DATA_ROOT+'data/word_features.pkl')
+        yield LoadModelWidget(title='Load Model', 
+                              id="load_model",
+                              savefile_path=DATA_ROOT+'data/wordle_classifier.pkl')
 
         yield Rule(classes="bottom-bar", id="bottom_rule")
 
@@ -218,19 +222,19 @@ class SetupScreen(Screen):
 
             yield GetWordsWidget(
                 title="Guesses",
-                savefile_path=VALID_GUESSES_FILE,
+                savefile_path=DATA_ROOT+VALID_GUESSES_FILE,
                 url=VALID_GUESSES_URL,
                 id="get_guesses"
             )
             yield GetWordsWidget(
                 title="Answers",
-                savefile_path=VALID_GUESSES_FILE,
+                savefile_path=DATA_ROOT+VALID_GUESSES_FILE,
                 url=VALID_GUESSES_URL,
                 id="get_answers"
             )
             yield GetPatternMatrixWidget(
                 title="Pattern Matrix",
-                savefile_path=DEFAULT_PATTERN_MATRIX_FILE,
+                savefile_path=DATA_ROOT+DEFAULT_PATTERN_MATRIX_FILE,
                 id='get_pattern_matrix'
             )
             
@@ -241,7 +245,7 @@ class SetupScreen(Screen):
                 yield Rule()
 
             filter_constructors = {'Suffix Filter': lambda: FilterSuffixWidget(suffixes=[('s', 's'), ('d', 'r', 'w', 'n'), 'es', 'ed'],
-                                                                               savefile_path=ENGLISH_DICTIONARY_FILE),
+                                                                               savefile_path=DATA_ROOT+ENGLISH_DICTIONARY_FILE),
                                    'Frequency Filter': lambda: FilterFrequencyWidget(),
                                    'POS Filter': lambda: FilterPOSWidget(),
                                    'Classifier Probability Filter': lambda: FilterProbabilityWidget()}
