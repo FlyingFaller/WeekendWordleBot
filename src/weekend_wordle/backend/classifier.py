@@ -8,6 +8,9 @@ from sklearn.linear_model import LogisticRegression
 import pickle
 from typing import Callable
 
+from weekend_wordle.backend.messenger import UIMessenger, ConsoleMessenger
+from weekend_wordle.backend.helpers import get_messenger
+
 DEFAULT_CONFIG = {
     'use_vectors': True,
     'spy_rate': 0.15,
@@ -28,22 +31,26 @@ DEFAULT_CONFIG = {
     }
 }
 
-def load_spacy_model(model_name="en_core_web_lg") -> spacy.language.Language:
+def load_spacy_model(model_name="en_core_web_lg",
+                     messenger: UIMessenger = None) -> spacy.language.Language:
     """Loads a spaCy model, prompting the user to download it if not found."""
+
+    messenger = get_messenger(messenger)
+
     try:
         nlp = spacy.load(model_name)
-        print(f"spaCy model '{model_name}' loaded successfully.")
+        messenger.log(f"spaCy model '{model_name}' loaded successfully.")
         return nlp
     except OSError:
-        print(f"spaCy model '{model_name}' not found. Attempting to download.")
+        messenger.log(f"spaCy model '{model_name}' not found. Attempting to download.")
         try:
             spacy.cli.download(model_name)
             nlp = spacy.load(model_name)
             return nlp
         except SystemExit:
-            print(f"Failed to automatically download model.")
-            print("Please download it manually using.")
-            print(f"uv add https://github.com/explosion/spacy-models/releases/download/en_core_web_lg-3.8.0/en_core_web_lg-3.8.0-py3-none-any.whl")
+            messenger.log(f"Failed to automatically download model.")
+            messenger.log("Please download it manually using.")
+            messenger.log(f"uv add https://github.com/explosion/spacy-models/releases/download/en_core_web_lg-3.8.0/en_core_web_lg-3.8.0-py3-none-any.whl")
             exit()
 
 def compute_word_features(words: np.ndarray[str], nlp):
@@ -74,20 +81,24 @@ def get_word_features(
     save_file: str = 'data/word_features.pkl', 
     recompute: bool = False, 
     save: bool = True,
-    model_name: str = "en_core_web_lg"
+    model_name: str = "en_core_web_lg",
+    messenger: UIMessenger = None
     ) -> pd.DataFrame:
     """Loads pre-computed word features from a file or recomputes them if needed."""
+
+    messenger = get_messenger(messenger)
+
     if not recompute and os.path.exists(save_file):
-        print(f"Loading pre-computed features from '{save_file}'...")
+        messenger.log(f"Loading pre-computed features from '{save_file}'...")
         return pd.read_pickle(save_file)
     
-    print("Recomputing features for all words...")
-    nlp = load_spacy_model(model_name)
+    messenger.log("Recomputing features for all words...")
+    nlp = load_spacy_model(model_name, messenger)
     features_df = compute_word_features(all_words, nlp)
     features_df['word'] = all_words # Add word column for easy merging
     
     if save and save_file:
-        print(f"Saving new features to '{save_file}'...")
+        messenger.log(f"Saving new features to '{save_file}'...")
         # Create directory if it doesn't exist
         os.makedirs(os.path.dirname(save_file), exist_ok=True)
         features_df.to_pickle(save_file)
@@ -98,12 +109,16 @@ def evaluate_training_performance(
     probabilities: np.ndarray[float],
     all_words: np.ndarray[str],
     positive_words: np.ndarray[str],
-    threshold: float = 0.5
+    threshold: float = 0.5,
+    messenger: UIMessenger = None
     ):
     """
     Evaluates the final model's performance on the entire dataset using the prediction function.
     """
-    print("\n--- Evaluating Model Performance on All Known Data ---")
+
+    messenger = get_messenger(messenger)
+
+    messenger.log("\n--- Evaluating Model Performance on All Known Data ---")
     
     results_df = pd.DataFrame({'word': all_words, 'probability': probabilities})
     
@@ -116,40 +131,43 @@ def evaluate_training_performance(
     recall = len(true_positives) / len(known_positives) if len(known_positives) > 0 else 0
     known_answer_density = len(true_positives) / len(predicted_positives) if len(predicted_positives) > 0 else 0
     
-    print(f"\nEvaluation with probability threshold >= {threshold:.2f}")
-    print("-" * 45)
-    print(f"{'Total Postives Predicted:':<30} {len(predicted_positives):>5}")
-    print(f"{'Total Known Positives:':<30} {len(known_positives):>5}")
-    print(f"{'Identified Positives (TPs):':<30} {len(true_positives):>5}")
-    print(f"{'False Negatives:':<30} {len(false_negatives):>5}")
-    print("-" * 45)
-    print(f"{'Recall on Positives:':<30} {recall:>5.2%}")
-    print(f"{'Known Answer Density:':<30} {known_answer_density:>5.2%}")
-    print("-" * 45)
+    messenger.log(f"\nEvaluation with probability threshold >= {threshold:.2f}")
+    messenger.log("-" * 45)
+    messenger.log(f"{'Total Postives Predicted:':<30} {len(predicted_positives):>5}")
+    messenger.log(f"{'Total Known Positives:':<30} {len(known_positives):>5}")
+    messenger.log(f"{'Identified Positives (TPs):':<30} {len(true_positives):>5}")
+    messenger.log(f"{'False Negatives:':<30} {len(false_negatives):>5}")
+    messenger.log("-" * 45)
+    messenger.log(f"{'Recall on Positives:':<30} {recall:>5.2%}")
+    messenger.log(f"{'Known Answer Density:':<30} {known_answer_density:>5.2%}")
+    messenger.log("-" * 45)
     
-    print("\n--- False Negatives (Words the Model Missed) ---")
+    messenger.log("\n--- False Negatives (Words the Model Missed) ---")
     fn_df = results_df[results_df['word'].isin(false_negatives)]
     formatted_fns = [f"{row.word} ({row.probability:.1%})" for row in fn_df.sort_values('word').itertuples()]
     
     if not formatted_fns:
-        print("None")
+        messenger.log("None")
     else:
         words_per_row = 5
         for i in range(0, len(formatted_fns), words_per_row):
             chunk = formatted_fns[i:i + words_per_row]
-            print(", ".join(chunk))
+            messenger.log(", ".join(chunk))
 
 def train_classifier(
     feature_df: pd.DataFrame, 
     positive_words: np.ndarray,
     all_words: np.ndarray, 
-    config: dict = DEFAULT_CONFIG, 
+    config: dict = DEFAULT_CONFIG,
+    messenger: UIMessenger = None 
     ) -> dict:
     """
     Trains the PU classifier from scratch and evaluates its performance.
     Returns a dictionary containing the trained model and scaler.
     """
-    print("\n--- Starting New Model Training ---")
+    messenger = get_messenger(messenger)
+
+    messenger.log("\n--- Starting New Model Training ---")
     
     # Prepare DataFrame for training
     train_df = feature_df.copy()
@@ -182,8 +200,11 @@ def train_classifier(
     feature_slice = slice(-len(enabled_features), None) if config['use_vectors'] else slice(None)
     weights_vector = np.array([config['explicit_features'][feat] for feat in enabled_features])
 
+    messenger.start_progress(total=config['max_iterations'], desc='Training model')
     for i in range(config['max_iterations']):
-        print(f"--- Training Iteration {i+1}/{config['max_iterations']} ---")
+        messenger.update_progress()
+
+        messenger.log(f"--- Training Iteration {i+1}/{config['max_iterations']} ---")
         X_train = np.concatenate([X_reliable_positives, X_unlabeled])
         y_train = np.array([1] * len(X_reliable_positives) + [0] * len(X_unlabeled))
         sample_weights = np.concatenate([np.ones(len(X_reliable_positives)), unlabeled_weights])
@@ -202,7 +223,7 @@ def train_classifier(
         X_spies_scaled[:, feature_slice] *= weights_vector
         spy_probs = model.predict_proba(X_spies_scaled)[:, 1]
         c = np.mean(spy_probs)
-        print(f"Average spy probability (c): {c:.4f}")
+        messenger.log(f"Average spy probability (c): {c:.4f}")
 
         X_unlabeled_scaled = X_unlabeled.copy()
         X_unlabeled_scaled[:, feature_slice] = scaler.transform(X_unlabeled[:, feature_slice])
@@ -211,13 +232,15 @@ def train_classifier(
         
         new_unlabeled_weights = np.clip(unlabeled_probs / c, 0, 1)
         weight_change = np.sum(np.abs(new_unlabeled_weights - unlabeled_weights))
-        print(f"Total change in weights: {weight_change:.4f}")
+        messenger.log(f"Total change in weights: {weight_change:.4f}")
         
         if weight_change < config['convergence_tolerance']:
-            print("Convergence reached.")
+            messenger.log("Convergence reached.")
             break
         unlabeled_weights = new_unlabeled_weights
     
+    messenger.stop_progress()
+
     # --- Post-Training Evaluation ---
     if model and scaler:
         eval_df = train_df.copy()
@@ -230,7 +253,8 @@ def train_classifier(
             probabilities=probabilities,
             all_words=all_words,
             positive_words=positive_words,
-            threshold=config.get('evaluation_threshold', 0.07)
+            threshold=config.get('evaluation_threshold', 0.07),
+            messenger=messenger
         )
 
     return {'model': model, 'scaler': scaler}
@@ -242,30 +266,33 @@ def load_classifier(
     save: bool = True,
     positive_words: np.ndarray = None,
     all_words: np.ndarray = None,
-    config: dict = DEFAULT_CONFIG
+    config: dict = DEFAULT_CONFIG,
+    messenger: UIMessenger = None
     ) -> Callable:
     """
     Loads a pre-trained classifier or retrains one if needed.
     Returns a self-contained prediction function.
     """
+    messenger = get_messenger(messenger)
+
     if not retrain and os.path.exists(save_file):
-        print(f"Loading pre-trained model artifacts from '{save_file}'...")
+        messenger.log(f"Loading pre-trained model artifacts from '{save_file}'...")
         with open(save_file, 'rb') as f:
             artifacts = pickle.load(f)
     else:
         if config is None:
             raise ValueError("A configuration dictionary must be provided for retraining.")
-        print("Training new model...")
+        messenger.log("Training new model...")
         trained_components = train_classifier(feature_df, positive_words, all_words, config)
         artifacts = {**trained_components, 'config': config}
         
         if save and save_file:
-            print(f"Saving new model artifacts to '{save_file}'...")
+            messenger.log(f"Saving new model artifacts to '{save_file}'...")
             os.makedirs(os.path.dirname(save_file), exist_ok=True)
             with open(save_file, 'wb') as f:
                 pickle.dump(artifacts, f)
 
-    print("\nPre-computing probabilities for all words for fast lookup...")
+    messenger.log("\nPre-computing probabilities for all words for fast lookup...")
     model: LogisticRegression = artifacts['model']
     scaler: StandardScaler = artifacts['scaler']
     model_config = artifacts['config']
@@ -314,10 +341,14 @@ def load_classifier(
 def filter_words_by_probability(
     prediction_function: Callable,
     words_to_filter: np.ndarray,
-    threshold: float = 0.07
+    threshold: float = 0.07,
+    messenger: UIMessenger = None
     ) -> np.ndarray:
     """
     Uses a prediction function to filter a list of words based on a probability threshold.
     """
+    messenger = get_messenger(messenger)
+    messenger.log('Filtering words by classifier probability')
+
     probabilities = prediction_function(words_to_filter)
     return words_to_filter[probabilities >= threshold]

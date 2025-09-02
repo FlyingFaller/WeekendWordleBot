@@ -31,8 +31,8 @@ class LetterSquare(Static):
     ALLOW_SELECT = False
     class Clicked(Message):
         def __init__(self, square: "LetterSquare"):
-            self.square = square
             super().__init__()
+            self.square = square
 
     letter = reactive(" ")
     color_index = reactive(0)
@@ -40,9 +40,9 @@ class LetterSquare(Static):
     has_focus = reactive(False)
 
     def __init__(self, row: int, col: int):
+        super().__init__()
         self.row = row
         self.col = col
-        super().__init__()
 
     def watch_color_index(self, new_index: int) -> None:
         self.styles.animate("background", value=COLORS[new_index], duration=0.2)

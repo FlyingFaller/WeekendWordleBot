@@ -8,12 +8,14 @@ from numba import njit
 import wordfreq
 import nltk
 import hashlib
-from weekend_wordle.backend.cache import Cache
 from bs4 import BeautifulSoup
 from numba.types import int64
 from numba import njit
 from numba.experimental import jitclass
 import time
+
+from weekend_wordle.backend.cache import Cache
+from weekend_wordle.backend.messenger import UIMessenger, ConsoleMessenger
 
 ### DEFAULTS ###
 VALID_GUESSES_URL = "https://gist.github.com/dracos/dd0668f281e685bad51479e5acaadb93/raw/6bfa15d263d6d5b63840a8e5b64e04b382fdb079/valid-wordle-words.txt"
@@ -45,6 +47,9 @@ EVENTS = [
 ]
 
 ### FUNCTIONS ###
+def get_messenger(messenger: UIMessenger = None) -> UIMessenger:
+    return messenger if messenger is not None else ConsoleMessenger()
+    
 def get_pattern(guess: str, answer: str) -> list[int]:
     """Calculates the wordle pattern for guess word and answer word."""
     pattern = [GRAY]*5
@@ -98,37 +103,72 @@ def compute_pattern_row(args):
         row[j] = pattern_to_int(get_pattern(guess_word, answer_word))
     return row
 
-def precompute_pattern_matrix(guesses:np.ndarray[str], answers: np.ndarray[str]) -> np.ndarray[int]:
-    """Generates the pattern matrix from word list to make searching efficient later"""
+# def precompute_pattern_matrix(guesses:np.ndarray[str], answers: np.ndarray[str], messenger: UIMessenger) -> np.ndarray[int]:
+#     """Generates the pattern matrix from word list to make searching efficient later"""
+#     nguesses = len(guesses)
+#     worker_args = [(guesses[i], answers) for i in range(nguesses)]
+#     with multiprocessing.Pool() as pool:
+#         results = list(tqdm(pool.imap(compute_pattern_row, worker_args), total=nguesses, desc="Building Pattern Matrix"))
+#     pattern_matrix = np.vstack(results)
+#     return pattern_matrix
+
+def precompute_pattern_matrix(
+    guesses: np.ndarray[str],
+    answers: np.ndarray[str],
+    messenger: UIMessenger
+    ) -> np.ndarray[int]:
+    """Generates the pattern matrix from word list efficiently."""
     nguesses = len(guesses)
     worker_args = [(guesses[i], answers) for i in range(nguesses)]
+    
+    messenger.start_progress(total=nguesses, desc="Building Pattern Matrix")
+    
+    results = []
     with multiprocessing.Pool() as pool:
-        results = list(tqdm(pool.imap(compute_pattern_row, worker_args), total=nguesses, desc="Building Pattern Matrix"))
+        for result_row in pool.imap(compute_pattern_row, worker_args):
+            results.append(result_row)
+            messenger.update_progress()
+            
+    messenger.stop_progress()
+    
     pattern_matrix = np.vstack(results)
     return pattern_matrix
 
-def get_pattern_matrix(guesses:np.ndarray[str], answers: np.ndarray[str], savefile=DEFAULT_PATTERN_MATRIX_FILE, recompute=False, save=True) -> np.ndarray[str]:
+def get_pattern_matrix(guesses:np.ndarray[str], 
+                       answers: np.ndarray[str], 
+                       savefile: str = DEFAULT_PATTERN_MATRIX_FILE, 
+                       recompute: bool = False, 
+                       save: bool = True,
+                       messenger: UIMessenger = None) -> np.ndarray[str]:
     """Retrieves the pattern matrix from file if it exists otherwise it generates it and saves it to file."""
+    messenger = get_messenger(messenger)
+
     if not recompute:
         if os.path.exists(savefile):
-            print("Fetching pattern matrix from file")
+            messenger.log("Fetching pattern matrix from file")
             pattern_matrix = np.load(savefile)
             return pattern_matrix
-    print("No pattern matrix file found or recompute requested")
-    pattern_matrix = precompute_pattern_matrix(guesses, answers)
+    messenger.log("No pattern matrix file found or recompute requested")
+    pattern_matrix = precompute_pattern_matrix(guesses, answers, messenger)
     if save:
-        print("Saving pattern matrix to file")
+        messenger.log("Saving pattern matrix to file")
         np.save(savefile, pattern_matrix)
     return pattern_matrix
 
-def get_words(savefile=VALID_GUESSES_FILE, url=VALID_GUESSES_URL, refetch=False, save=True, include_uppercase=False) -> np.ndarray[str]:
+def get_words(savefile=VALID_GUESSES_FILE, 
+              url=VALID_GUESSES_URL, 
+              refetch=False, 
+              save=True, 
+              include_uppercase=False,
+              messenger: UIMessenger = None) -> np.ndarray[str]:
     """
     Retrieves the word list, filtering for lowercase a-z words.
     It fetches from a local file if it exists, otherwise from a URL.
     """
+    messenger = get_messenger(messenger)
     # --- Path 1: Reading from local file ---
     if not refetch and os.path.exists(savefile):
-        print("Fetching words from file")
+        messenger.log("Fetching words from file")
         with open(savefile, 'r') as f:
             # Filter for non-empty, all-lowercase, a-z only words.
             words = [
@@ -138,7 +178,7 @@ def get_words(savefile=VALID_GUESSES_FILE, url=VALID_GUESSES_URL, refetch=False,
             return np.array(words, dtype=str)
 
     # --- Path 2: Fetching from the web ---
-    print("No word list exists or refetching requested, fetching from the web")
+    messenger.log("No word list exists or refetching requested, fetching from the web")
     try:
         response = requests.get(url)
         response.raise_for_status() # Raise an exception for bad status codes
@@ -151,7 +191,7 @@ def get_words(savefile=VALID_GUESSES_FILE, url=VALID_GUESSES_URL, refetch=False,
         ]
 
         if save:
-            print(f"Saving {len(filtered_words)} filtered words to file")
+            messenger.log(f"Saving {len(filtered_words)} filtered words to file")
             # Save the *filtered* list, with each word on a new line.
             with open(savefile, 'w') as f:
                 f.write('\n'.join(filtered_words))
@@ -159,17 +199,20 @@ def get_words(savefile=VALID_GUESSES_FILE, url=VALID_GUESSES_URL, refetch=False,
         return np.array(filtered_words, dtype=str)
 
     except requests.exceptions.RequestException as e:
-        print(f"Error downloading the word list: {e}")
+        messenger.log(f"Error downloading the word list: {e}")
         return np.array([], dtype=str)
     
 def scrape_words(savefile: str | None = PAST_ANSWERS_FILE, 
                  url: str | None = PAST_ANSWERS_URL, 
                  refetch: bool = False, 
                  save: bool = True,
-                 header: tuple[str, str] = ('All Wordle answers', 'h2')) -> np.ndarray:
+                 header: tuple[str, str] = ('All Wordle answers', 'h2'),
+                 messenger: UIMessenger = None) -> np.ndarray:
+    
+    messenger = get_messenger(messenger)
     
     if not refetch and os.path.exists(savefile):
-        print("Fetching words from file")
+        messenger.log("Fetching words from file")
         with open(savefile, 'r') as f:
             # Filter for non-empty, all-lowercase, a-z only words.
             words = [
@@ -178,7 +221,7 @@ def scrape_words(savefile: str | None = PAST_ANSWERS_FILE,
             ]
             return np.array(words, dtype=str)
     
-    print("No word list exists or refetching requested, fetching from the web")     
+    messenger.log("No word list exists or refetching requested, fetching from the web")     
     if not url:
         raise ValueError("A URL must be provided to scrape words when no valid savefile is found.")
         
@@ -194,13 +237,13 @@ def scrape_words(savefile: str | None = PAST_ANSWERS_FILE,
         # Find the <h2> tag that acts as an anchor for our data
         header_tag = soup.find(header[1], string=header[0])
         if not header_tag:
-            print(f"Error: Could not find the {header[0]} header on the page.")
+            messenger.log(f"Error: Could not find the {header[0]} header on the page.")
             return np.array([], dtype=str)
 
         # Find the <ul> tag immediately following the header
         word_list_ul = header_tag.find_next_sibling('ul')
         if not word_list_ul:
-            print("Error: Could not find the word list (<ul>) after the header.")
+            messenger.log("Error: Could not find the word list (<ul>) after the header.")
             return np.array([], dtype=str)
 
         # Extract all list items and validate them
@@ -209,21 +252,21 @@ def scrape_words(savefile: str | None = PAST_ANSWERS_FILE,
         words = [word.lower() for word in raw_words if len(word) == 5 and word.isalpha()]
 
     except requests.exceptions.RequestException as e:
-        print(f"An error occurred during the web request: {e}")
+        messenger.log(f"An error occurred during the web request: {e}")
         return np.array([], dtype=str)
     except Exception as e:
-        print(f"An unexpected error occurred during scraping: {e}")
+        messenger.log(f"An unexpected error occurred during scraping: {e}")
         return np.array([], dtype=str)
 
     # --- Case 3: Save the scraped words to a file ---
     if save and savefile and words:
-        print(f"Saving {len(words)} words to {savefile}")
+        messenger.log(f"Saving {len(words)} words to {savefile}")
         try:
             with open(savefile, 'w') as f:
                 for word in words:
                     f.write(f"{word}\n")
         except Exception as e:
-            print(f"Error saving words to file: {e}")
+            messenger.log(f"Error saving words to file: {e}")
             
     return np.array(words, dtype=str)
 
@@ -238,17 +281,24 @@ def get_minimum_freq(words: np.ndarray[str]) -> tuple[float, int, str]:
     word_idx = np.argmin(frequencies)
     return (np.min(frequencies), word_idx, words[word_idx])
 
-def filter_words_by_frequency(words: np.ndarray, min_freq: float = 1e-7) -> np.ndarray:
+def filter_words_by_frequency(words: np.ndarray, 
+                              min_freq: float = 1e-7,
+                              messenger: UIMessenger = None) -> np.ndarray:
+    messenger = get_messenger(messenger)
+
     common_words = []
-    print(f"Filtering {len(words)} words with a minimum frequency of {min_freq}...")
+    messenger.log(f"Filtering {len(words)} words with a minimum frequency of {min_freq}...")
     
-    # Using tqdm to create a progress bar
-    for word in tqdm(words, desc="Analyzing word frequency"):
+    messenger.start_progress(total=len(words), desc="Analyzing word frequency")
+    for word in words:
         # 'word_frequency' returns the frequency of the word in English ('en').
         # If the word is not found, it returns 0.
         frequency = wordfreq.word_frequency(word.lower(), 'en')
         if frequency >= min_freq:
             common_words.append(word)
+
+        messenger.update_progress()
+    messenger.stop_progress()
     return np.array(common_words)
 
 @njit(cache=True)
@@ -329,11 +379,21 @@ def get_nltk_words(download=False) -> np.ndarray[str]:
         nltk.download('words')
     return nltk.corpus.words.words()
 
-def filter_words_by_length(words, length) -> np.ndarray[str]:
+def filter_words_by_length(words: np.ndarray[str], 
+                           length: int, 
+                           messenger: UIMessenger = None) -> np.ndarray[str]:
+    messenger = get_messenger(messenger)
+    messenger.log('Filtering words by length')
     return np.array([word.lower() for word in words if len(word) == length])
 
-def filter_words_by_POS(input_words, tags=['NNS', 'VBD', 'VBN'], download=False) -> np.ndarray[str]:
+def filter_words_by_POS(input_words, 
+                        tags: list[str] = ['NNS', 'VBD', 'VBN'], 
+                        download: bool = False, 
+                        messenger: UIMessenger = None) -> np.ndarray[str]:
+    messenger = get_messenger(messenger)
+    messenger.log('Filtering words by POS tag')
     if download:
+        messenger.log('Downloading NLTK')
         nltk.download('averaged_perceptron_tagger')
         nltk.download('punkt')
         nltk.download('averaged_perceptron_tagger_eng')
@@ -349,8 +409,8 @@ def filter_words_by_POS(input_words, tags=['NNS', 'VBD', 'VBN'], download=False)
 def filter_words_by_suffix(
     input_words: np.ndarray[str],
     filter_words: np.ndarray[str],
-    suffixes: list[str | tuple[str, ...]] = []
-) -> np.ndarray[str]:
+    suffixes: list[str | tuple[str, ...]] = [],
+    messenger: UIMessenger = None) -> np.ndarray[str]:
     """
     Filters 5-letter words that are shorter words with a suffix.
 
@@ -369,6 +429,9 @@ def filter_words_by_suffix(
     Returns:
         A NumPy array of words with the filtered words removed.
     """
+    messenger = get_messenger(messenger)
+    messenger.log('Filtering words by suffix')
+
     if not suffixes:
         return input_words
 
@@ -376,8 +439,10 @@ def filter_words_by_suffix(
     words3 = filter_words_by_length(filter_words, 3)
     words4 = filter_words_by_length(filter_words, 4)
 
+    messenger.start_progress(total=len(suffixes), desc='Evaluating suffixes')
     masks_to_remove = []
     for rule in suffixes:
+        messenger.update_progress()
         # 1. Unpack the rule into suffix and exceptions
         if isinstance(rule, tuple):
             if not rule: continue # Skip empty tuple
@@ -418,6 +483,8 @@ def filter_words_by_suffix(
             final_mask_for_rule = potential_removal_mask
         
         masks_to_remove.append(final_mask_for_rule)
+        
+    messenger.stop_progress()
 
     # Combine all removal masks. A word is removed if it matches ANY rule.
     if not masks_to_remove:

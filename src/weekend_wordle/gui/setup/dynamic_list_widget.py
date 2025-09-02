@@ -33,11 +33,11 @@ class DeletableCollapsible(Collapsible):
     """A Collapsible widget with a delete button in the title bar."""
     # Add new CSS to style the title bar and the delete button
     DEFAULT_CSS = Collapsible.DEFAULT_CSS + """
-    DeletableCollapsible > #title-bar {
+    DeletableCollapsible > #title_bar {
         height: auto;
     }
 
-    DeletableCollapsible > #title-bar > #delete-button {
+    DeletableCollapsible > #title_bar > #delete_button {
         dock: right;
         width: 3;
         height: 1;
@@ -53,8 +53,8 @@ class DeletableCollapsible(Collapsible):
         Can be handled using `on_deletable_collapsible_delete` in a parent widget.
         """
         def __init__(self, collapsible: "DeletableCollapsible") -> None:
-            self.collapsible = collapsible
             super().__init__()
+            self.collapsible = collapsible
 
         @property
         def control(self) -> "DeletableCollapsible":
@@ -64,11 +64,11 @@ class DeletableCollapsible(Collapsible):
     def compose(self) -> ComposeResult:
         """Overrides the original compose to add a title bar and delete button."""
         # Create a container for the title and the button
-        with Container(id="title-bar"):
+        with Container(id="title_bar"):
             # The original title widget is used here
             yield self._title
             # The new delete button
-            yield NoFocusButton("X", id="delete-button", variant='error') 
+            yield NoFocusButton("X", id="delete_button", variant='error') 
 
         # The original contents container is used here
         with self.Contents():
@@ -77,7 +77,7 @@ class DeletableCollapsible(Collapsible):
     def _on_button_pressed(self, event: Button.Pressed) -> None:
         """Handle the delete button being pressed."""
         # Ensure we are only responding to our delete button
-        if event.button.id == "delete-button":
+        if event.button.id == "delete_button":
             # Stop the event from bubbling up further
             event.stop()
             # Post a message to be caught by the parent application
@@ -125,7 +125,7 @@ class DynamicCollapsibleList(VerticalScroll):
             options=self._generate_select_options(),
             prompt="Add new item...",
             allow_blank=True,
-            id="add-item-select",
+            id="add_item_select",
             compact=True
         )
 
@@ -155,7 +155,6 @@ class DynamicCollapsibleList(VerticalScroll):
         # Create and mount the new collapsible item
         new_item = DeletableCollapsible(content_widget, title=item_name)
         self.mount(new_item)
-        new_item.scroll_visible()
 
     def on_deletable_collapsible_delete(self, event: DeletableCollapsible.Delete) -> None:
         """Handles the delete message from a child collapsible."""
@@ -165,7 +164,7 @@ class DynamicCollapsibleList(VerticalScroll):
 
     def _update_select_options(self) -> None:
         """Helper method to refresh the options in the Select widget."""
-        select_widget = self.query_one("#add-item-select", HoverSelect)
+        select_widget = self.query_one("#add_item_select", HoverSelect)
         select_widget.set_options(self._generate_select_options())
 
     def update_classifier_dependency(self, classifier_enabled: bool) -> None:

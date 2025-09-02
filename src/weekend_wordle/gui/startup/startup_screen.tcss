@@ -4,13 +4,13 @@ Screen {
     layout: vertical;
 }
 
-#startup-dialog {
+#startup_dialog {
     align: center middle;
     width: 100%;
     height: 100%;
 }
 
-#startup-dialog {
+#startup_dialog {
     align: center middle;
 }
 
@@ -18,7 +18,7 @@ Screen {
     text-style: italic;
 }
 
-#startup-dialog > .subtitle {
+#startup_dialog > .subtitle {
     dock: bottom;
     width: 100%;
     content-align: center middle;

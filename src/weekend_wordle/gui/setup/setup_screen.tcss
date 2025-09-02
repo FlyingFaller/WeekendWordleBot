@@ -145,7 +145,7 @@ LoadClassifierWidget Collapsible Input:focus {
     margin-bottom: 1;
 }
 
-#feature-list {
+#feature_list {
     height: auto;
     padding: 0;
 }
@@ -172,7 +172,7 @@ DynamicCollapsibleList {
 }
 
 /* Style the Select widget inside the list */
-DynamicCollapsibleList > #add-item-select {
+DynamicCollapsibleList > #add_item_select {
     margin: 0 1 1 1;
     width: 30;
     align: left middle;

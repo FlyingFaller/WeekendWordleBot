@@ -8,6 +8,7 @@ from textual.widgets import (Static,
                              Checkbox)
 
 from weekend_wordle.backend.classifier import DEFAULT_CONFIG
+from weekend_wordle.gui.setup.config_protocol import Configurable
 
 class LoadingWidget(Container):
     """A generic, extensible widget for configuring data loading."""
@@ -176,7 +177,7 @@ class ExplicitFeatureWidget(Container):
         yield Input(value=str(self.feature_weight), id="weight_input", compact=True)
 
 
-class LoadClassifierWidget(GetPatternMatrixWidget):
+class LoadModelWidget(GetPatternMatrixWidget):
     """A specialized widget for loading the word classifier with advanced options."""
 
     def __init__(self, config: dict = DEFAULT_CONFIG, *args, **kwargs):
@@ -214,7 +215,7 @@ class LoadClassifierWidget(GetPatternMatrixWidget):
             
             yield Static("\nExplicit Feature Weights:", classes="feature-header")
             
-            with Horizontal(classes="column-container", id="feature-list"):
+            with Horizontal(classes="column-container", id="feature_list"):
                 feature_items = list(self._config['explicit_features'].items())
                 with Vertical(classes="column"):
                     for name, weight in feature_items[:5]:

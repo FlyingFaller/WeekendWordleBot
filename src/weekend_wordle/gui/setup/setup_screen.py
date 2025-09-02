@@ -23,7 +23,7 @@ from weekend_wordle.gui.setup.dynamic_list_widget import DynamicCollapsibleList
 from weekend_wordle.gui.setup.loading_widget import (GetWordsWidget, 
                                                      ScrapeWordsWidget, 
                                                      GetWordFeaturesWidget, 
-                                                     LoadClassifierWidget,
+                                                     LoadModelWidget,
                                                      GetPatternMatrixWidget)
 
 from weekend_wordle.gui.setup.filter_widget import (FilterSuffixWidget,
@@ -47,11 +47,16 @@ class ClassifierSection(Container):
     class ClassifierStateChanged(Message):
         """Posted when the classifier section is enabled or disabled."""
         def __init__(self, enabled: bool) -> None:
-            self.enabled = enabled
             super().__init__()
+            self.enabled = enabled
 
-    def __init__(self, default_state=True, collapse_on_disable=True) -> None:
-        super().__init__()
+    def __init__(self, 
+                 default_state=True, 
+                 collapse_on_disable=True,
+                 *args,
+                 **kwargs
+                 ) -> None:
+        super().__init__(*args, **kwargs)
         self._default_state = default_state
         self._collapse_on_disable = collapse_on_disable
 
@@ -62,7 +67,7 @@ class ClassifierSection(Container):
         with Horizontal(classes="title-bar"):
             yield Label("Load Optional Classifier")
             yield Rule()
-            yield Switch(id="enable-switch", value=self._default_state)
+            yield Switch(id="enable_switch", value=self._default_state)
         
         # The rest of the content widgets...
         widget_constructors = {
@@ -75,22 +80,22 @@ class ClassifierSection(Container):
         yield DynamicCollapsibleList(title='Positive Words', 
                                      widget_constructors=widget_constructors,
                                      default_widgets=default_widgets,
-                                     id="positive-words-list")
+                                     id="positive_words_list")
         
-        yield GetWordFeaturesWidget(title='Word Features',id="word-features")
-        yield LoadClassifierWidget(title='Load Classifier', id="load-classifier")
+        yield GetWordFeaturesWidget(title='Word Features',id="word_features")
+        yield LoadModelWidget(title='Load Model', id="load_model")
 
-        yield Rule(classes="bottom-bar", id="bottom-rule")
+        yield Rule(classes="bottom-bar", id="bottom_rule")
 
     def on_mount(self) -> None:
         """Called when the widget is first mounted to set initial state."""
         # Ensure the initial visibility matches the switch's default value.
-        self.toggle_widgets(self.query_one("#enable-switch", Switch).value)
+        self.toggle_widgets(self.query_one("#enable_switch", Switch).value)
 
     def on_switch_changed(self, event: Switch.Changed) -> None:
         """Called when the 'Enable' switch is toggled."""
         # We only care about our specific switch.
-        if event.switch.id == "enable-switch":
+        if event.switch.id == "enable_switch":
             # Stop the event from bubbling up to other widgets.
             event.stop()
             # Call the helper method to do the actual work.
@@ -100,9 +105,9 @@ class ClassifierSection(Container):
         """A helper method to show or hide the classifier configuration widgets."""
         # Find all the widgets we want to control.
         widgets_to_toggle = [
-            self.query_one("#positive-words-list"),
-            self.query_one("#word-features"),
-            self.query_one("#load-classifier"),
+            self.query_one("#positive_words_list"),
+            self.query_one("#word_features"),
+            self.query_one("#load_model"),
         ]
         if self._collapse_on_disable:
             # Loop through them and set their visibility.
@@ -126,6 +131,21 @@ class ClassifierSection(Container):
 
         self.post_message(self.ClassifierStateChanged(enabled))
 
+    def get_config(self) -> dict | None:
+        """
+        Retrieves the configuration for the classifier pipeline.
+        """
+        # Query for the switch by its ID and check its boolean value
+        if not self.query_one("#enable_switch", Switch).value:
+            return None
+
+        # If enabled, gather the config from the child widgets
+        return {
+            "positive_words": self.query_one("#positive_words_list").get_config(),
+            "word_features": self.query_one("#word_features").get_config(),
+            "model": self.query_one("#load_model").get_config(),
+        }
+
 class AnswerSortWidget(Static):
     """A widget to select the sorting method for answers."""
     class CustomRadioButton(RadioButton):
@@ -134,7 +154,7 @@ class AnswerSortWidget(Static):
     def __init__(self, title: str = None, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.border_title = title
-
+        
     def compose(self) -> ComposeResult:
         """Create the child widgets for the answer sort widget."""
         with RadioSet():
@@ -166,12 +186,24 @@ class AnswerSortWidget(Static):
 class SetupScreen(Screen):
     """A screen to configure the Wordle solver setup."""
 
-    AUTO_FOCUS = " "
+    AUTO_FOCUS = ""
     CSS_PATH = "setup_screen.tcss"
 
     BINDINGS = [
         ("enter", "confirm_setup", "Confirm Setup"),
     ]
+
+    def __init__(self) -> None:
+        super().__init__()
+        self._ready_to_confirm = False
+
+    def on_mount(self) -> None:
+        """Called when the screen is mounted."""
+        self.call_after_refresh(self._unlock_confirm)
+
+    def _unlock_confirm(self) -> None:
+        """Callback to enable the confirm action."""
+        self._ready_to_confirm = True
 
     def compose(self) -> ComposeResult:
         # """Create child widgets for the screen."""
@@ -188,18 +220,21 @@ class SetupScreen(Screen):
                 title="Guesses",
                 savefile_path=VALID_GUESSES_FILE,
                 url=VALID_GUESSES_URL,
+                id="get_guesses"
             )
             yield GetWordsWidget(
                 title="Answers",
                 savefile_path=VALID_GUESSES_FILE,
                 url=VALID_GUESSES_URL,
+                id="get_answers"
             )
             yield GetPatternMatrixWidget(
                 title="Pattern Matrix",
                 savefile_path=DEFAULT_PATTERN_MATRIX_FILE,
+                id='get_pattern_matrix'
             )
             
-            yield ClassifierSection(collapse_on_disable=False)
+            yield ClassifierSection(collapse_on_disable=False, id="classifier_section")
 
             with Horizontal(classes="section-header"):
                 yield Label("Apply Optional Filters to Answer Set")
@@ -221,7 +256,7 @@ class SetupScreen(Screen):
                 yield Label("Select Optional Answer Sort")
                 yield Rule()
 
-            yield AnswerSortWidget()
+            yield AnswerSortWidget(id="answer_sort")
 
         yield Footer()
 
@@ -243,4 +278,16 @@ class SetupScreen(Screen):
         Called when the user presses Enter.
         Switches to the loading screen.
         """
-        self.app.switch_screen(LoadingScreen())
+
+        if not self._ready_to_confirm:
+            return
+        
+        config = {}
+        config['guesses']        = self.query_one('#get_guesses').get_config()
+        config['answers']        = self.query_one('#get_answers').get_config()
+        config['pattern_matrix'] = self.query_one('#get_pattern_matrix').get_config()
+        config['classifier']     = self.query_one('#classifier_section').get_config()
+        config['filter']         = self.query_one('#answer_filters_list').get_config()
+        config['sort']           = self.query_one('#answer_sort').get_config()
+
+        self.app.switch_screen(LoadingScreen(config))

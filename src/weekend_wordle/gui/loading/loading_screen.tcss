@@ -3,3 +3,19 @@ Screen {
     color: $text;
     layout: vertical;
 }
+
+/* --- Progress Bar Styling --- */
+TitledProgressBar {
+    dock: bottom;
+    margin: -1 0 1 0;
+    height: 3;
+    border: round gray;
+}
+
+#progress {
+    height: 100%;
+}
+
+ProgressBar > Bar {
+    width: 1fr;
+}

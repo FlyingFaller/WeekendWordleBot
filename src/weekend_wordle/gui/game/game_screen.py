@@ -25,10 +25,10 @@ class GameScreen(Screen):
     def compose(self) -> ComposeResult:
         """Create the layout of the application."""
         yield Header(show_clock=True)
-        with Container(id="app-container"):
-            yield Sidebar(id="sidebar-container")
-            with Container(id="board-wrapper"):
-                yield WordleBoard(id="wordle-board")
+        with Container(id="app_container"):
+            yield Sidebar(id="sidebar_container")
+            with Container(id="board_wrapper"):
+                yield WordleBoard(id="wordle_board")
         yield TitledProgressBar()
         yield Footer()
 
@@ -54,7 +54,7 @@ class GameScreen(Screen):
 
     def on_resize(self, event: object = None) -> None:
         """Handles window resize events to keep the board centered and scaled."""
-        app_container = self.query_one("#app-container")
+        app_container = self.query_one("#app_container")
         sidebar = self.query_one(Sidebar)
         progress_bar = self.query_one(TitledProgressBar)
         results_table = sidebar.query_one(ResultsTable).query_one(DataTable)

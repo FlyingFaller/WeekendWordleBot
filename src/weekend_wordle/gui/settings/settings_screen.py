@@ -13,5 +13,5 @@ class SettingsScreen(Screen):
             Label("Settings", id="title"),
             Label("This screen is a placeholder for future settings.", classes="subtitle"),
             Label("Press Ctrl+S to save and close.", classes="subtitle"),
-            id="settings-dialog",
+            id="settings_dialog",
         )

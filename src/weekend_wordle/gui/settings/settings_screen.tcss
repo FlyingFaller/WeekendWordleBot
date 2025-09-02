@@ -4,7 +4,7 @@ Screen {
     layout: vertical;
 }
 
-#settings-dialog {
+#settings_dialog {
     align: center middle;
     width: 100%;
     height: 100%;

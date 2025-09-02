@@ -21,7 +21,7 @@ class StartupScreen(Screen):
                 horizontal=True
             ),
             Label("Press any key to start", classes="subtitle"),
-            id="startup-dialog",
+            id="startup_dialog",
         )
     def on_key(self, event: events.Key) -> None:
         event.prevent_default()
