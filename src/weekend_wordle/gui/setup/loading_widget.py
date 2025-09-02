@@ -100,6 +100,8 @@ class GetWordsWidget(LoadingWidget):
 
 class GetPatternMatrixWidget(LoadingWidget):
     """A specialized widget for loading the pattern matrix."""
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
 
     def compose_inputs(self) -> ComposeResult:
         """Yields only the savefile input, as no URL is needed."""
