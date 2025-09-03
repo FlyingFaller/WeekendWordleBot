@@ -4,6 +4,8 @@ Defines the LoadingScreen for the Wordle Solver application.
 This screen provides visual feedback to the user while backend assets are
 being loaded and processed.
 """
+from functools import reduce
+import numpy as np
 
 from textual.app import ComposeResult
 from textual.screen import Screen
@@ -16,6 +18,8 @@ from weekend_wordle.backend.messenger import TextualMessenger
 from weekend_wordle.gui.game.progress_widget import PatchedProgressBar
 from weekend_wordle.backend.helpers import *
 from weekend_wordle.backend.classifier import filter_words_by_probability, load_classifier, get_word_features
+from weekend_wordle.gui.setup.loading_widget import GetWordsWidget, ScrapeWordsWidget
+from weekend_wordle.gui.setup.filter_widget import FilterSuffixWidget, FilterFrequencyWidget, FilterPOSWidget, FilterProbabilityWidget
 
 class LoadingScreen(Screen):
     """A screen to display while the backend is loading data."""
@@ -49,37 +53,56 @@ class LoadingScreen(Screen):
         It creates a messenger and passes it to the backend.
         """
         messenger = TextualMessenger()
+        guesses = get_words(**self.config['guesses'], messenger=messenger)
+        answers = get_words(**self.config['answers'], messenger=messenger)
+        pattern_matrix = get_pattern_matrix(guesses, answers, **self.config['pattern_matrix'], messenger=messenger)
 
-        guess_cfg = self.config['guesses']
-        guess_words = get_words(savefile          = get_abs_path(guess_cfg['savefile']),
-                                url               = guess_cfg['url'],
-                                refetch           = guess_cfg['refetch'],
-                                save              = guess_cfg['save'],
-                                include_uppercase = guess_cfg['include_uppercase'],
-                                messenger         = messenger)
-        
-        answer_cfg = self.config['answers']
-        answer_words = get_words(savefile          = get_abs_path(answer_cfg['savefile']),
-                                 url               = answer_cfg['url'],
-                                 refetch           = answer_cfg['refetch'],
-                                 save              = answer_cfg['save'],
-                                 include_uppercase = answer_cfg['include_uppercase'],
-                                 messenger         = messenger)
-        
-        pattern_matrix_cfg = self.config['pattern_matrix']
-        pattern_matrix = get_pattern_matrix(guesses   = guess_words,
-                                            answers   = answer_words,
-                                            savefile  = pattern_matrix_cfg['savefile'],
-                                            recompute = pattern_matrix_cfg['refetch'],
-                                            save      = pattern_matrix_cfg['save'],
-                                            messenger = messenger)
-        
-        pattern_matrix = get_pattern_matrix(guesses   = guess_words,
-                                            answers   = answer_words,
-                                            savefile  = pattern_matrix_cfg['savefile'],
-                                            recompute = pattern_matrix_cfg['refetch'],
-                                            save      = pattern_matrix_cfg['save'],
-                                            messenger = messenger)
+        ### Load Classifier ###
+        if self.config['classifier']:
+            clss_cfg = self.config['classifier']
+            positive_word_tuple = ()
+            for positive_word_source in clss_cfg['positive_words']:
+                if positive_word_source['type'] is GetWordsWidget:
+                    positive_word_tuple += (get_words(**positive_word_source['contents'], messenger=messenger),)
+                elif positive_word_source['type'] is ScrapeWordsWidget:
+                    positive_word_tuple += (scrape_words(**positive_word_source['contents'], messenger=messenger),)
+
+            positive_words = reduce(np.union1d, positive_word_tuple)
+            word_features = get_word_features(all_words=guesses, **clss_cfg['word_features'], messenger=messenger)
+            classifier_sort_func = load_classifier(word_features, 
+                                                   positive_words=positive_words, 
+                                                   all_words=guesses, 
+                                                   **clss_cfg['model'],
+                                                   messenger=messenger)
+            
+        ### Filter Answers ###
+        filtered_answers = answers.copy()
+        for filter_source in self.config['filters']:
+            filter_type = filter_source['type']
+            filter_contents = filter_source['contents']
+            if filter_type is FilterSuffixWidget:
+                filter_words = get_words(**filter_contents['get_words'], messenger=messenger)
+                filtered_answers = filter_words_by_suffix(filtered_answers,
+                                                          filter_words,
+                                                          filter_contents['suffixes'],
+                                                          messenger=messenger)
+            elif filter_type is FilterFrequencyWidget:
+                filtered_answers = filter_words_by_frequency(filtered_answers, 
+                                                             filter_contents['min_freq'],
+                                                             messenger=messenger)
+            elif filter_type is FilterPOSWidget:
+                filtered_answers = filter_words_by_POS(filtered_answers, 
+                                                       **filter_contents,
+                                                       messenger=messenger)
+            elif filter_type is FilterProbabilityWidget and self.config['classifier']:
+                filter_words_by_probability(classifier_sort_func, 
+                                            filtered_answers,
+                                            filter_contents['threshold'],
+                                            messenger=messenger)
+
+        log = self.query_one(RichLog)
+        log.write(f"Words after filter: {len(filtered_answers)}")
+
 
     def on_worker_state_changed(self, event: Worker.StateChanged) -> None:
         """Called when the worker's state changes."""
@@ -121,3 +144,10 @@ class LoadingScreen(Screen):
     ) -> None:
         """Advance the progress bar."""
         self.query_one(PatchedProgressBar).advance(message.advance)
+
+    def on_textual_messenger_progress_stop(
+        self, messange: TextualMessenger.ProgressStop
+    ) -> None:
+        """Stop the progress bar and ensure it has finished."""
+        p_bar = self.query_one(PatchedProgressBar)
+        p_bar.progress = p_bar.total

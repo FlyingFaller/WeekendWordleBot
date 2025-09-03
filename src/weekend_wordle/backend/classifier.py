@@ -78,7 +78,7 @@ def compute_word_features(words: np.ndarray[str], nlp):
 
 def get_word_features(
     all_words: np.ndarray, 
-    save_file: str = 'data/word_features.pkl', 
+    savefile: str = 'data/word_features.pkl', 
     recompute: bool = False, 
     save: bool = True,
     model_name: str = "en_core_web_lg",
@@ -88,20 +88,20 @@ def get_word_features(
 
     messenger = get_messenger(messenger)
 
-    if not recompute and os.path.exists(save_file):
-        messenger.log(f"Loading pre-computed features from '{save_file}'...")
-        return pd.read_pickle(save_file)
+    if not recompute and os.path.exists(savefile):
+        messenger.log(f"Loading pre-computed features from '{savefile}'...")
+        return pd.read_pickle(savefile)
     
     messenger.log("Recomputing features for all words...")
     nlp = load_spacy_model(model_name, messenger)
     features_df = compute_word_features(all_words, nlp)
     features_df['word'] = all_words # Add word column for easy merging
     
-    if save and save_file:
-        messenger.log(f"Saving new features to '{save_file}'...")
+    if save and savefile:
+        messenger.log(f"Saving new features to '{savefile}'...")
         # Create directory if it doesn't exist
-        os.makedirs(os.path.dirname(save_file), exist_ok=True)
-        features_df.to_pickle(save_file)
+        os.makedirs(os.path.dirname(savefile), exist_ok=True)
+        features_df.to_pickle(savefile)
         
     return features_df
 
@@ -261,8 +261,8 @@ def train_classifier(
 
 def load_classifier(
     feature_df: pd.DataFrame, 
-    save_file: str = 'data/wordle_classifier.pkl',
-    retrain: bool = False,
+    savefile: str = 'data/wordle_classifier.pkl',
+    recompute: bool = False,
     save: bool = True,
     positive_words: np.ndarray = None,
     all_words: np.ndarray = None,
@@ -275,21 +275,21 @@ def load_classifier(
     """
     messenger = get_messenger(messenger)
 
-    if not retrain and os.path.exists(save_file):
-        messenger.log(f"Loading pre-trained model artifacts from '{save_file}'...")
-        with open(save_file, 'rb') as f:
+    if not recompute and os.path.exists(savefile):
+        messenger.log(f"Loading pre-trained model artifacts from '{savefile}'...")
+        with open(savefile, 'rb') as f:
             artifacts = pickle.load(f)
     else:
         if config is None:
             raise ValueError("A configuration dictionary must be provided for retraining.")
         messenger.log("Training new model...")
-        trained_components = train_classifier(feature_df, positive_words, all_words, config)
+        trained_components = train_classifier(feature_df, positive_words, all_words, config, messenger)
         artifacts = {**trained_components, 'config': config}
         
-        if save and save_file:
-            messenger.log(f"Saving new model artifacts to '{save_file}'...")
-            os.makedirs(os.path.dirname(save_file), exist_ok=True)
-            with open(save_file, 'wb') as f:
+        if save and savefile:
+            messenger.log(f"Saving new model artifacts to '{savefile}'...")
+            os.makedirs(os.path.dirname(savefile), exist_ok=True)
+            with open(savefile, 'wb') as f:
                 pickle.dump(artifacts, f)
 
     messenger.log("\nPre-computing probabilities for all words for fast lookup...")

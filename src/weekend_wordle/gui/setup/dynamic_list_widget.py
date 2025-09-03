@@ -199,14 +199,13 @@ class DynamicCollapsibleList(VerticalScroll):
             for item in self.query(DeletableCollapsible):
                 # The actual content widget (e.g., LoadingWidget) is inside the Contents container.
                 # We can query for it. Since there's only one, we can grab the first result.
-                content_widget = item.query_one(Widget)
+                # In the get_config method of DynamicCollapsibleList
+                content_widget = item.query_one(DeletableCollapsible.Contents).query_one(Widget)
                 
                 # Check if the content widget has a get_config method.
                 if hasattr(content_widget, "get_config"):
-                    # Call get_config to get the widget's specific data.
-                    config = content_widget.get_config()
-                    # Add the widget_name for context, using the collapsible's title.
-                    config["widget_name"] = item.title
+                    config = {'type': type(content_widget)} 
+                    config['contents'] = content_widget.get_config()
                     config_list.append(config)
             return config_list
     

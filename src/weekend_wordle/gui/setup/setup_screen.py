@@ -291,7 +291,7 @@ class SetupScreen(Screen):
         config['answers']        = self.query_one('#get_answers').get_config()
         config['pattern_matrix'] = self.query_one('#get_pattern_matrix').get_config()
         config['classifier']     = self.query_one('#classifier_section').get_config()
-        config['filter']         = self.query_one('#answer_filters_list').get_config()
+        config['filters']        = self.query_one('#answer_filters_list').get_config()
         config['sort']           = self.query_one('#answer_sort').get_config()
 
         self.app.switch_screen(LoadingScreen(config))

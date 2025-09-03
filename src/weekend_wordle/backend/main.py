@@ -56,7 +56,7 @@ if __name__ == "__main__":
     positive_words = np.union1d(past_answers, original_answers)
 
     word_features = get_word_features(all_words=guesses)
-    prediction_func = load_classifier(word_features, positive_words=positive_words, all_words=guesses, retrain=False)
+    prediction_func = load_classifier(word_features, positive_words=positive_words, all_words=guesses, recompute=False)
 
     # Optional filter
     reduced_answers = filter_words_by_probability(prediction_func, guesses)

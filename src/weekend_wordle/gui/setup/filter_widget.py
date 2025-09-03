@@ -96,7 +96,7 @@ class FilterSuffixWidget(GetWordsWidget):
 
     def get_config(self) -> dict:
         """Returns the config, including the suffixes from the dynamic list."""
-        config = super().get_config()
+        config = {'get_words': super().get_config()}
         suffix_list = self.query_one("#suffix_list", SimpleDynamicListWidget)
         rules = []
         for rule_widget in suffix_list.query(_SuffixRuleWidget):

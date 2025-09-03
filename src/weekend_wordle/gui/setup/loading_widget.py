@@ -118,7 +118,7 @@ class GetPatternMatrixWidget(LoadingWidget):
         """Returns the config, excluding the URL which is not present."""
         return {
             "savefile": self.query_one("#savefile", Input).value,
-            "refetch": self.query_one("#refetch", Switch).value,
+            "recompute": self.query_one("#refetch", Switch).value,
             "save": self.query_one("#save", Switch).value,
         }
 
