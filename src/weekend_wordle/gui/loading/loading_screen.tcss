@@ -4,18 +4,26 @@ Screen {
     layout: vertical;
 }
 
-/* --- Progress Bar Styling --- */
-TitledProgressBar {
-    dock: bottom;
-    margin: -1 0 1 0;
-    height: 3;
-    border: round gray;
+RichLog {
+    background: transparent 0%;
 }
 
-#progress {
-    height: 100%;
+/* --- Progress Bar Styling --- */
+PatchedProgressBar {
+    dock: bottom;
+    height: 3;
+    border: round gray;
+    margin: -1 0 1 0;
 }
 
 ProgressBar > Bar {
     width: 1fr;
+}
+
+Bar > .bar--indeterminate {
+    color: #4795de;
+}
+
+Bar > .bar--complete {
+    color: #16ac55;
 }

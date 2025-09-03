@@ -75,17 +75,21 @@ LetterSquare.focused {
 }
 
 /* --- Progress Bar Styling --- */
-TitledProgressBar {
+PatchedProgressBar {
     dock: bottom;
-    margin: -1 0 1 0;
     height: 3;
     border: round gray;
-}
-
-#progress {
-    height: 100%;
+    margin: -1 0 1 0;
 }
 
 ProgressBar > Bar {
     width: 1fr;
+}
+
+Bar > .bar--indeterminate {
+    color: #4795de;
+}
+
+Bar > .bar--complete {
+    color: #16ac55;
 }

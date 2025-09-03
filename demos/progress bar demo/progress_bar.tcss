@@ -1,15 +1,19 @@
-/* minimal_progress.tcss */
-
-/* Target the ProgressBar container */
-ProgressBar {
-    /* Dock the widget to the bottom of the screen */
+/* --- Progress Bar Styling --- */
+PatchedProgressBar {
     dock: bottom;
-    /* Add some margin for spacing */
-    margin: 1 2;
+    height: 3;
+    border: round gray;
+    margin: -1 0 1 0;
 }
 
-/* Target the inner Bar widget */
 ProgressBar > Bar {
-    /* Use 1fr to make the bar fill all available horizontal space */
     width: 1fr;
+}
+
+Bar > .bar--indeterminate {
+    color: #4795de;
+}
+
+Bar > .bar--complete {
+    color: #16ac55;
 }

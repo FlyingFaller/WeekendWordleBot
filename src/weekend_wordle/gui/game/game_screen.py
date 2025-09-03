@@ -3,11 +3,12 @@ from textual.containers import Container
 from textual.screen import Screen
 from textual.widgets import Footer, Header, ProgressBar, DataTable
 from textual import events
+from textual.color import Gradient
 
 # Import refactored components
 from weekend_wordle.gui.game.board_widget import WordleBoard, GameState
 from weekend_wordle.gui.game.sidebar_widget import Sidebar, ResultsTable, StatsTable
-from weekend_wordle.gui.game.progress_widget import TitledProgressBar
+from weekend_wordle.gui.game.progress_widget import PatchedProgressBar
 from weekend_wordle.gui.game.text_processors import TextProcessor, FigletProcessor
 
 class GameScreen(Screen):
@@ -29,7 +30,13 @@ class GameScreen(Screen):
             yield Sidebar(id="sidebar_container")
             with Container(id="board_wrapper"):
                 yield WordleBoard(id="wordle_board")
-        yield TitledProgressBar()
+
+        gradient = Gradient.from_colors("#4795de", "#bb637a")
+        yield PatchedProgressBar(
+            gradient=gradient,
+            show_time_elapsed=True, # Explicitly enable the new feature
+        )
+        
         yield Footer()
 
     def on_mount(self) -> None:
@@ -56,7 +63,7 @@ class GameScreen(Screen):
         """Handles window resize events to keep the board centered and scaled."""
         app_container = self.query_one("#app_container")
         sidebar = self.query_one(Sidebar)
-        progress_bar = self.query_one(TitledProgressBar)
+        progress_bar = self.query_one(PatchedProgressBar)
         results_table = sidebar.query_one(ResultsTable).query_one(DataTable)
         stats_table = sidebar.query_one(StatsTable).query_one(DataTable)
 

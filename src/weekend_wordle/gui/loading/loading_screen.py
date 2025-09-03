@@ -9,10 +9,11 @@ from textual.app import ComposeResult
 from textual.screen import Screen
 from textual.widgets import Header, Footer, Static, ProgressBar, RichLog
 from textual.worker import Worker, WorkerState
+from textual.color import Gradient
 
 from weekend_wordle.gui.game.game_screen import GameScreen
 from weekend_wordle.backend.messenger import TextualMessenger
-from weekend_wordle.gui.game.progress_widget import TitledProgressBar
+from weekend_wordle.gui.game.progress_widget import PatchedProgressBar
 from weekend_wordle.backend.helpers import *
 from weekend_wordle.backend.classifier import filter_words_by_probability, load_classifier, get_word_features
 
@@ -29,7 +30,13 @@ class LoadingScreen(Screen):
         yield Header()
         yield Static("Loading backend data...", id="loading_text")
         yield RichLog(id="log_output", highlight=True, markup=True)
-        yield TitledProgressBar(id="progress_bar")
+
+        gradient = Gradient.from_colors("#4795de", "#bb637a")
+        yield PatchedProgressBar(
+            gradient=gradient,
+            show_time_elapsed=True, # Explicitly enable the new feature
+        )
+        
         yield Footer()
 
     def on_mount(self) -> None:
@@ -66,6 +73,13 @@ class LoadingScreen(Screen):
                                             recompute = pattern_matrix_cfg['refetch'],
                                             save      = pattern_matrix_cfg['save'],
                                             messenger = messenger)
+        
+        pattern_matrix = get_pattern_matrix(guesses   = guess_words,
+                                            answers   = answer_words,
+                                            savefile  = pattern_matrix_cfg['savefile'],
+                                            recompute = pattern_matrix_cfg['refetch'],
+                                            save      = pattern_matrix_cfg['save'],
+                                            messenger = messenger)
 
     def on_worker_state_changed(self, event: Worker.StateChanged) -> None:
         """Called when the worker's state changes."""
@@ -93,12 +107,11 @@ class LoadingScreen(Screen):
         self, message: TextualMessenger.ProgressStart
     ) -> None:
         """Reset the progress bar for a new task."""
-        p_bar = self.query_one(ProgressBar)
+        p_bar = self.query_one(PatchedProgressBar)
         p_bar.total = message.total
         p_bar.progress = 0
 
-        p_bar_container = self.query_one(TitledProgressBar)
-        p_bar_container.border_title = message.description
+        p_bar.border_title = message.description
         
         loading_text = self.query_one("#loading_text", Static)
         loading_text.update(message.description)
@@ -107,4 +120,4 @@ class LoadingScreen(Screen):
         self, message: TextualMessenger.ProgressUpdate
     ) -> None:
         """Advance the progress bar."""
-        self.query_one(ProgressBar).advance(message.advance)
+        self.query_one(PatchedProgressBar).advance(message.advance)
