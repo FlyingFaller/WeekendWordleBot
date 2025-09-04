@@ -106,15 +106,6 @@ def compute_pattern_row(args):
         row[j] = pattern_to_int(get_pattern(guess_word, answer_word))
     return row
 
-# def precompute_pattern_matrix(guesses:np.ndarray[str], answers: np.ndarray[str], messenger: UIMessenger) -> np.ndarray[int]:
-#     """Generates the pattern matrix from word list to make searching efficient later"""
-#     nguesses = len(guesses)
-#     worker_args = [(guesses[i], answers) for i in range(nguesses)]
-#     with multiprocessing.Pool() as pool:
-#         results = list(tqdm(pool.imap(compute_pattern_row, worker_args), total=nguesses, desc="Building Pattern Matrix"))
-#     pattern_matrix = np.vstack(results)
-#     return pattern_matrix
-
 def precompute_pattern_matrix(
     guesses: np.ndarray[str],
     answers: np.ndarray[str],
@@ -124,87 +115,104 @@ def precompute_pattern_matrix(
     nguesses = len(guesses)
     worker_args = [(guesses[i], answers) for i in range(nguesses)]
     
+    # This log is now correctly indented as part of the parent task.
+    messenger.task_log("Starting parallel computation...", level="STEP")
     messenger.start_progress(total=nguesses, desc="Building Pattern Matrix")
     
     results = []
+    # NOTE: Multiprocessing pools can have issues with some complex objects.
+    # If the messenger object causes pickling errors, it may need to be handled differently.
     with multiprocessing.Pool() as pool:
         for result_row in pool.imap(compute_pattern_row, worker_args):
             results.append(result_row)
             messenger.update_progress()
             
     messenger.stop_progress()
+    # Use INFO as this is a step, not the final success message of the whole task.
+    messenger.task_log("Computation complete.", level="INFO")
     
-    pattern_matrix = np.vstack(results)
-    return pattern_matrix
+    return np.vstack(results)
 
 def get_pattern_matrix(guesses:np.ndarray[str], 
                        answers: np.ndarray[str], 
                        savefile: str = DEFAULT_PATTERN_MATRIX_FILE, 
                        recompute: bool = False, 
                        save: bool = True,
-                       messenger: UIMessenger = None) -> np.ndarray[str]:
-    """Retrieves the pattern matrix from file if it exists otherwise it generates it and saves it to file."""
+                       messenger: UIMessenger = None) -> np.ndarray:
+    """Retrieves the pattern matrix from file if it exists, otherwise generates and saves it."""
     messenger = get_messenger(messenger)
 
-    if not recompute:
-        if os.path.exists(savefile):
-            messenger.log("Fetching pattern matrix from file")
+    with messenger.task("Acquiring pattern matrix"):
+        # --- Path 2: Load from local file ---
+        if not recompute and os.path.exists(savefile):
+            messenger.task_log("Found local file. Loading matrix...", level="INFO")
             pattern_matrix = np.load(savefile)
+            messenger.task_log(f"Loaded matrix with shape {pattern_matrix.shape}.", level="INFO")
             return pattern_matrix
-    messenger.log("No pattern matrix file found or recompute requested")
-    pattern_matrix = precompute_pattern_matrix(guesses, answers, messenger)
-    if save:
-        messenger.log("Saving pattern matrix to file")
-        np.save(savefile, pattern_matrix)
-    return pattern_matrix
+    
+        # --- Path 1: Compute if recompute is forced or file doesn't exist ---
+        if recompute:
+            messenger.task_log("Recompute requested. Starting new computation...", level="INFO")
+        else:
+            messenger.task_log("Local file not found. Starting new computation...", level="INFO")
+        
+        pattern_matrix = precompute_pattern_matrix(guesses, answers, messenger)
 
-def get_words(savefile=VALID_GUESSES_FILE, 
-              url=VALID_GUESSES_URL, 
-              refetch=False, 
-              save=True, 
-              include_uppercase=False,
+        if save:                
+            messenger.task_log(f"Saving to {savefile}...", level="INFO")
+            np.save(savefile, pattern_matrix)
+            messenger.task_log("Save complete.", level="INFO")
+        return pattern_matrix
+
+def get_words(savefile               = VALID_GUESSES_FILE, 
+              url                    = VALID_GUESSES_URL,
+              refetch                = False,
+              save                   = True,
+              include_uppercase      = False,
               messenger: UIMessenger = None) -> np.ndarray[str]:
     """
     Retrieves the word list, filtering for lowercase a-z words.
     It fetches from a local file if it exists, otherwise from a URL.
     """
-
     messenger = get_messenger(messenger)
-    # --- Path 1: Reading from local file ---
-    if not refetch and os.path.exists(savefile):
-        messenger.log("Fetching words from file")
-        with open(savefile, 'r') as f:
-            # Filter for non-empty, all-lowercase, a-z only words.
-            words = [
-                line.strip().lower() for line in f 
-                if line.strip() and line.strip().isascii() and (line.strip().islower() or include_uppercase)
-            ]
+    
+    with messenger.task(f"Acquiring word list"):
+
+        # --- Path 1: Fetch from the web if refetch is forced or file doesn't exist ---
+        if not refetch and os.path.exists(savefile):
+            messenger.task_log("Found local file. Loading words...", level="INFO")
+            with open(savefile, 'r') as f:
+                words = [
+                    line.strip().lower() for line in f 
+                    if line.strip() and line.strip().isascii() and (line.strip().islower() or include_uppercase)
+                ]
+            messenger.task_log(f"Found {len(words)} words.", level="INFO")
             return np.array(words, dtype=str)
 
-    # --- Path 2: Fetching from the web ---
-    messenger.log("No word list exists or refetching requested, fetching from the web")
-    try:
+        # --- Path 2: Fetch from the web if refetch is forced or file doesn't exist ---
+        if refetch:
+            messenger.task_log("Refetch requested. Fetching from the web...", level="INFO")
+        else:
+            messenger.task_log("Local file not found. Fetching from the web...", level="INFO")
+        
+        # The messenger's task context manager will handle any exceptions here.
         response = requests.get(url)
-        response.raise_for_status() # Raise an exception for bad status codes
+        response.raise_for_status()
 
-        # Filter the freshly downloaded list.
         all_words = response.text.splitlines()
         filtered_words = [
             word for word in all_words 
             if word and word.isascii() and word.islower()
         ]
+        messenger.task_log(f"Downloaded {len(filtered_words)} words.", level="INFO")
 
         if save:
-            messenger.log(f"Saving {len(filtered_words)} filtered words to file")
-            # Save the *filtered* list, with each word on a new line.
+            messenger.task_log(f"Saving to {savefile}...", level="INFO")
             with open(savefile, 'w') as f:
                 f.write('\n'.join(filtered_words))
+            messenger.task_log("Save complete.", level="INFO")
         
         return np.array(filtered_words, dtype=str)
-
-    except requests.exceptions.RequestException as e:
-        messenger.log(f"Error downloading the word list: {e}")
-        return np.array([], dtype=str)
     
 def scrape_words(savefile: str | None = PAST_ANSWERS_FILE, 
                  url: str | None = PAST_ANSWERS_URL, 
@@ -212,67 +220,61 @@ def scrape_words(savefile: str | None = PAST_ANSWERS_FILE,
                  save: bool = True,
                  header: tuple[str, str] = ('All Wordle answers', 'h2'),
                  messenger: UIMessenger = None) -> np.ndarray:
-    
+    """
+    Scrapes a list of 5-letter words from a given URL, or loads them from a local file.
+    """
     messenger = get_messenger(messenger)
     
-    if not refetch and os.path.exists(savefile):
-        messenger.log("Fetching words from file")
-        with open(savefile, 'r') as f:
-            # Filter for non-empty, all-lowercase, a-z only words.
-            words = [
-                line.strip().lower() for line in f 
-                if line.strip() and line.strip().isascii()
-            ]
-            return np.array(words, dtype=str)
-    
-    messenger.log("No word list exists or refetching requested, fetching from the web")     
-    if not url:
-        raise ValueError("A URL must be provided to scrape words when no valid savefile is found.")
-        
-    words = []
-    try:
-        # Send an HTTP GET request to the URL
-        response = requests.get(url, timeout=10)
-        response.raise_for_status() # Raise an exception for bad status codes
+    with messenger.task("Aquiring scraped words"):
 
-        # Parse the HTML content
+        # --- Path 1: Load from local file if it exists and refetch is false ---
+        if not refetch and os.path.exists(savefile):
+            messenger.task_log("Found local file. Loading words...", level="INFO")
+            with open(savefile, 'r') as f:
+                words = [
+                    line.strip().lower() for line in f 
+                    if line.strip() and line.strip().isascii()
+                ]
+            messenger.task_log(f"Found {len(words)} words.", level="INFO")
+            return np.array(words, dtype=str)
+
+        # --- Path 2: Scrape from the web ---
+        if refetch:
+            messenger.task_log("Refetch requested. Scraping from the web...", level="INFO")
+        else:
+            messenger.task_log("Local file not found. Scraping from the web...", level="INFO")
+
+        if not url:
+            raise ValueError("A URL must be provided to scrape words when no local file is available.")
+
+        # Let the task context manager handle request exceptions
+        response = requests.get(url, timeout=10)
+        response.raise_for_status()
+        messenger.task_log("Web page retrieved successfully.", level="INFO")
+
         soup = BeautifulSoup(response.text, 'html.parser')
 
-        # Find the <h2> tag that acts as an anchor for our data
         header_tag = soup.find(header[1], string=header[0])
         if not header_tag:
-            messenger.log(f"Error: Could not find the {header[0]} header on the page.")
-            return np.array([], dtype=str)
+            raise ValueError(f"Could not find the '{header[0]}' header on the page.")
 
-        # Find the <ul> tag immediately following the header
         word_list_ul = header_tag.find_next_sibling('ul')
         if not word_list_ul:
-            messenger.log("Error: Could not find the word list (<ul>) after the header.")
-            return np.array([], dtype=str)
+            raise ValueError("Could not find the word list (<ul>) after the header.")
 
-        # Extract all list items and validate them
+        messenger.task_log("Found word list. Extracting and validating words...", level="INFO")
         list_items = word_list_ul.find_all('li')
         raw_words = [li.get_text(strip=True).upper() for li in list_items if li.get_text(strip=True)]
         words = [word.lower() for word in raw_words if len(word) == 5 and word.isalpha()]
+        messenger.task_log(f"Extracted {len(words)} valid words.", level="INFO")
 
-    except requests.exceptions.RequestException as e:
-        messenger.log(f"An error occurred during the web request: {e}")
-        return np.array([], dtype=str)
-    except Exception as e:
-        messenger.log(f"An unexpected error occurred during scraping: {e}")
-        return np.array([], dtype=str)
-
-    # --- Case 3: Save the scraped words to a file ---
-    if save and savefile and words:
-        messenger.log(f"Saving {len(words)} words to {savefile}")
-        try:
+        if save and savefile:
+            messenger.task_log(f"Saving to {savefile}...", level="INFO")
             with open(savefile, 'w') as f:
-                for word in words:
-                    f.write(f"{word}\n")
-        except Exception as e:
-            messenger.log(f"Error saving words to file: {e}")
-            
-    return np.array(words, dtype=str)
+                f.write('\n'.join(words))
+            messenger.task_log("Save complete.", level="INFO")
+
+        return np.array(words, dtype=str)
 
 def get_word_freqs(words: np.ndarray[str]) -> np.ndarray[float]:
     frequencies = np.zeros(len(words))
@@ -289,21 +291,22 @@ def filter_words_by_frequency(words: np.ndarray,
                               min_freq: float = 1e-7,
                               messenger: UIMessenger = None) -> np.ndarray:
     messenger = get_messenger(messenger)
+    initial_count = len(words)
 
-    common_words = []
-    messenger.log(f"Filtering {len(words)} words with a minimum frequency of {min_freq}...")
-    
-    messenger.start_progress(total=len(words), desc="Analyzing word frequency")
-    for word in words:
-        # 'word_frequency' returns the frequency of the word in English ('en').
-        # If the word is not found, it returns 0.
-        frequency = wordfreq.word_frequency(word.lower(), 'en')
-        if frequency >= min_freq:
-            common_words.append(word)
-
-        messenger.update_progress()
-    messenger.stop_progress()
-    return np.array(common_words)
+    with messenger.task(f"Filtering by frequency (min: {min_freq})"):
+        common_words = []
+        messenger.start_progress(total=initial_count, desc="Analyzing word frequency")
+        for word in words:
+            frequency = wordfreq.word_frequency(word.lower(), 'en')
+            if frequency >= min_freq:
+                common_words.append(word)
+            messenger.update_progress()
+        messenger.stop_progress()
+        
+        filtered_words = np.array(common_words)
+        final_count = len(filtered_words)
+        messenger.task_log(f"Filtered from {initial_count} ⟶  {final_count} words.", level="INFO")
+        return filtered_words
 
 @njit(cache=True)
 def PNR_hash(arr: np.ndarray) -> np.int64:
@@ -387,28 +390,40 @@ def filter_words_by_length(words: np.ndarray[str],
                            length: int, 
                            messenger: UIMessenger = None) -> np.ndarray[str]:
     messenger = get_messenger(messenger)
-    messenger.log('Filtering words by length')
-    return np.array([word.lower() for word in words if len(word) == length])
+    initial_count = len(words)
 
-def filter_words_by_POS(input_words, 
+    with messenger.task(f"Filtering by length (== {length})"):
+        filtered_list = [word.lower() for word in words if len(word) == length]
+        filtered_words = np.array(filtered_list)
+        final_count = len(filtered_words)
+        messenger.task_log(f"Filtered from {initial_count} ⟶  {final_count} words.", level="INFO")
+        return filtered_words
+
+def filter_words_by_POS(input_words: np.ndarray[str], 
                         tags: list[str] = ['NNS', 'VBD', 'VBN'], 
                         download: bool = False, 
                         messenger: UIMessenger = None) -> np.ndarray[str]:
     messenger = get_messenger(messenger)
-    messenger.log('Filtering words by POS tag')
-    if download:
-        messenger.log('Downloading NLTK')
-        nltk.download('averaged_perceptron_tagger')
-        nltk.download('punkt')
-        nltk.download('averaged_perceptron_tagger_eng')
-    
-    tagged_words = nltk.pos_tag(input_words)
-    exclude_tags = set(tags)
+    initial_count = len(input_words)
 
-    # Keep a word only if its tag is NOT in our exclusion set
-    filtered_list = [word for word, tag in tagged_words if tag not in exclude_tags]
+    with messenger.task(f"Filtering by Part-of-Speech (excluding {tags})"):
+        if download:
+            messenger.task_log('Downloading NLTK dependencies...', level="INFO")
+            # Download quietly to avoid cluttering our log
+            nltk.download('averaged_perceptron_tagger', quiet=True)
+            nltk.download('punkt', quiet=True)
+            nltk.download('averaged_perceptron_tagger_eng', quiet=True)
+        
+        messenger.task_log("Tagging words...", level="INFO")
+        tagged_words = nltk.pos_tag(input_words)
+        exclude_tags = set(tags)
 
-    return np.array(filtered_list)
+        filtered_list = [word for word, tag in tagged_words if tag not in exclude_tags]
+        
+        filtered_words = np.array(filtered_list)
+        final_count = len(filtered_words)
+        messenger.task_log(f"Filtered from {initial_count} ⟶  {final_count} words.", level="INFO")
+        return filtered_words
 
 def filter_words_by_suffix(
     input_words: np.ndarray[str],
@@ -434,69 +449,62 @@ def filter_words_by_suffix(
         A NumPy array of words with the filtered words removed.
     """
     messenger = get_messenger(messenger)
-    messenger.log('Filtering words by suffix')
+    initial_count = len(input_words)
 
-    if not suffixes:
-        return input_words
+    with messenger.task("Filtering by suffixes"):
+        if not suffixes:
+            messenger.task_log("No suffixes provided, returning.", level="INFO")
+            return input_words
 
-    # Pre-filter the dictionary for 3 and 4-letter words for efficiency
-    words3 = filter_words_by_length(filter_words, 3)
-    words4 = filter_words_by_length(filter_words, 4)
+        # These sub-tasks will now appear as nested, logged operations.
+        words3 = filter_words_by_length(filter_words, 3, messenger)
+        words4 = filter_words_by_length(filter_words, 4, messenger)
 
-    messenger.start_progress(total=len(suffixes), desc='Evaluating suffixes')
-    masks_to_remove = []
-    for rule in suffixes:
-        messenger.update_progress()
-        # 1. Unpack the rule into suffix and exceptions
-        if isinstance(rule, tuple):
-            if not rule: continue # Skip empty tuple
-            suffix, *exceptions = rule
-        else:
-            suffix = rule
-            exceptions = []
-        
-        # Determine the stem length and which word list to use
-        stem_len = 5 - len(suffix)
-        if stem_len == 4:
-            valid_stems = words4
-        elif stem_len == 3:
-            valid_stems = words3
-        else:
-            continue # Skip suffixes of invalid length
-
-        # 2. Create a base mask for words that are candidates for removal
-        #    - Condition 1: Word ends with the suffix.
-        #    - Condition 2: The stem (word without suffix) is a valid word.
-        potential_removal_mask = np.logical_and(
-            np.char.endswith(input_words, suffix.lower()),
-            np.isin([word[:stem_len] for word in input_words], valid_stems)
-        )
-
-        # 3. If there are exceptions, create a mask to prevent removal
-        if exceptions:
-            # Get the character that precedes the suffix for each word
-            preceding_chars = np.array([word[-len(suffix)-1] for word in input_words])
-            # Create a mask that is True for words that meet the exception criteria
-            exception_mask = np.isin(preceding_chars, exceptions)
+        messenger.start_progress(total=len(suffixes), desc='Evaluating suffixes')
+        masks_to_remove = []
+        for rule in suffixes:
+            messenger.update_progress()
+            if isinstance(rule, tuple):
+                if not rule: continue
+                suffix, *exceptions = rule
+            else:
+                suffix = rule
+                exceptions = []
             
-            # A word should be removed only if it's a potential candidate
-            # AND it does NOT meet the exception criteria.
-            final_mask_for_rule = np.logical_and(potential_removal_mask, ~exception_mask)
-        else:
-            # If no exceptions, all potential candidates are marked for removal
-            final_mask_for_rule = potential_removal_mask
-        
-        masks_to_remove.append(final_mask_for_rule)
-        
-    messenger.stop_progress()
+            stem_len = 5 - len(suffix)
+            if stem_len == 4:
+                valid_stems = words4
+            elif stem_len == 3:
+                valid_stems = words3
+            else:
+                continue
 
-    # Combine all removal masks. A word is removed if it matches ANY rule.
-    if not masks_to_remove:
-        return input_words
-        
-    composite_removal_mask = np.logical_or.reduce(masks_to_remove)
+            potential_removal_mask = np.logical_and(
+                np.char.endswith(input_words, suffix.lower()),
+                np.isin([word[:stem_len] for word in input_words], valid_stems)
+            )
 
-    return input_words[~composite_removal_mask]
+            if exceptions:
+                preceding_chars = np.array([word[-len(suffix)-1] for word in input_words])
+                exception_mask = np.isin(preceding_chars, exceptions)
+                final_mask_for_rule = np.logical_and(potential_removal_mask, ~exception_mask)
+            else:
+                final_mask_for_rule = potential_removal_mask
+            
+            masks_to_remove.append(final_mask_for_rule)
+            
+        messenger.stop_progress()
+
+        if not masks_to_remove:
+            messenger.task_log("No matching words found, returning.", level="INFO")
+            return input_words
+            
+        composite_removal_mask = np.logical_or.reduce(masks_to_remove)
+        
+        filtered_words = input_words[~composite_removal_mask]
+        final_count = len(filtered_words)
+        messenger.task_log(f"Filtered from {initial_count} ⟶  {final_count} words.", level="INFO")
+        return filtered_words
 
 def print_stats(event_counts, cache: Cache):
     """

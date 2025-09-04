@@ -32,8 +32,8 @@ class LoadingScreen(Screen):
     def compose(self) -> ComposeResult:
         """Create child widgets for the screen."""
         yield Header()
-        yield Static("Loading backend data...", id="loading_text")
-        yield RichLog(id="log_output", highlight=True, markup=True)
+        # yield Static("Loading backend data...", id="loading_text")
+        yield RichLog(id="log_output", highlight=False, markup=True)
 
         gradient = Gradient.from_colors("#4795de", "#bb637a")
         yield PatchedProgressBar(
@@ -100,9 +100,6 @@ class LoadingScreen(Screen):
                                             filter_contents['threshold'],
                                             messenger=messenger)
 
-        log = self.query_one(RichLog)
-        log.write(f"Words after filter: {len(filtered_answers)}")
-
 
     def on_worker_state_changed(self, event: Worker.StateChanged) -> None:
         """Called when the worker's state changes."""
@@ -136,8 +133,8 @@ class LoadingScreen(Screen):
 
         p_bar.border_title = message.description
         
-        loading_text = self.query_one("#loading_text", Static)
-        loading_text.update(message.description)
+        # loading_text = self.query_one("#loading_text", Static)
+        # loading_text.update(message.description)
 
     def on_textual_messenger_progress_update(
         self, message: TextualMessenger.ProgressUpdate
