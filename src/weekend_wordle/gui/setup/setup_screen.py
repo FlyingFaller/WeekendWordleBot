@@ -184,8 +184,8 @@ class AnswerSortWidget(Static):
         radio_set = self.query_one(RadioSet)
         # Check which button is pressed and return the corresponding value
         if radio_set.pressed_button and radio_set.pressed_button.id == "classifier_probability":
-            return "Classifier Probability"
-        return "Word Frequency"
+            return "Classifier"
+        return "Frequency"
 
 class SetupScreen(Screen):
     """A screen to configure the Wordle solver setup."""

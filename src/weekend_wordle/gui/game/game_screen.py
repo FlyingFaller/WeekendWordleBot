@@ -10,6 +10,7 @@ from weekend_wordle.gui.game.board_widget import WordleBoard, GameState
 from weekend_wordle.gui.game.sidebar_widget import Sidebar, ResultsTable, StatsTable
 from weekend_wordle.gui.game.progress_widget import PatchedProgressBar
 from weekend_wordle.gui.game.text_processors import TextProcessor, FigletProcessor
+from weekend_wordle.backend.core import WordleGame
 
 class GameScreen(Screen):
     """The main screen for the Wordle game, acting as an orchestrator."""
@@ -19,9 +20,10 @@ class GameScreen(Screen):
     TILE_ASPECT_RATIO = 2.0
     CSS_PATH = "game_screen.tcss"
 
-    def __init__(self):
+    def __init__(self, game_obj: WordleGame):
         super().__init__()
         self.text_processor = FigletProcessor() if self.use_figlet else TextProcessor()
+        self.game_obj = game_obj
 
     def compose(self) -> ComposeResult:
         """Create the layout of the application."""
@@ -56,8 +58,6 @@ class GameScreen(Screen):
             results_table = self.query_one(ResultsTable)
             new_suggestion = results_table.dummy_rows[event.cursor_row][1]
             board.update_suggestion(new_suggestion)
-
-    # REMOVED: The watch_wordle_board_game_state method has been removed.
 
     def on_resize(self, event: object = None) -> None:
         """Handles window resize events to keep the board centered and scaled."""

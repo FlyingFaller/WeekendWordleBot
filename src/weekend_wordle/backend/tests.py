@@ -25,7 +25,7 @@ def simulate_game(pattern_matrix: np.ndarray[np.uint8],
                   cache         : int|Cache|None = None,
                   sort_func     : Callable|None  = None) -> dict: 
     
-    game_obj = wordle_game(pattern_matrix,
+    game_obj = WordleGame(pattern_matrix,
                            guesses,
                            answers,
                            nprune_global,

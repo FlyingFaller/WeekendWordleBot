@@ -63,7 +63,7 @@ class ConsoleMessenger:
         """Logs a pre-formatted string directly to the console."""
         level_prefix = self._prefixes.get(level, "")
         output = f"{prefix}{level_prefix}{message}{suffix}"
-        if self.pbar:
+        if self.pbar is not None:
             self.pbar.write(output)
         else:
             print(output)
@@ -108,18 +108,18 @@ class ConsoleMessenger:
         """
         Closes any existing progress bar and starts a new one.
         """
-        if self.pbar:
+        if self.pbar is not None:
             self.pbar.close()
-        self.pbar = tqdm(total=total, desc=desc)
+        self.pbar = tqdm(total=total, desc=desc, bar_format = '{l_bar}{bar}| {n:.1f}/{total_fmt} [{elapsed}<{remaining}]')
 
     def update_progress(self, advance: float = 1) -> None:
         """Updates the active progress bar, if it exists."""
-        if self.pbar:
+        if self.pbar is not None:
             self.pbar.update(advance)
 
     def stop_progress(self) -> None:
         """Closes the active progress bar, if it exists."""
-        if self.pbar:
+        if self.pbar is not None:
             self.pbar.close()
             self.pbar = None
 

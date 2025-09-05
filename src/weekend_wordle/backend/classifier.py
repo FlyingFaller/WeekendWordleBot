@@ -231,7 +231,7 @@ def train_classifier(
                     log_start = np.log(max(weight_change, epsilon))
                     log_target = np.log(config['convergence_tolerance'])
                     if log_start > log_target:
-                        messenger.start_progress(total = log_start-log_target, desc="Training convergence")
+                        messenger.start_progress(total = log_start-log_target, desc="Training Convergence")
                         p_bar_started = True
                 
                 elif last_weight is not None:

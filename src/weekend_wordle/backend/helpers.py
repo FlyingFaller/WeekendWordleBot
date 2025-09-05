@@ -295,7 +295,7 @@ def filter_words_by_frequency(words: np.ndarray,
 
     with messenger.task(f"Filtering by frequency (min: {min_freq})"):
         common_words = []
-        messenger.start_progress(total=initial_count, desc="Analyzing word frequency")
+        messenger.start_progress(total=initial_count, desc="Analyzing Word Frequency")
         for word in words:
             frequency = wordfreq.word_frequency(word.lower(), 'en')
             if frequency >= min_freq:
@@ -460,7 +460,7 @@ def filter_words_by_suffix(
         words3 = filter_words_by_length(filter_words, 3, messenger)
         words4 = filter_words_by_length(filter_words, 4, messenger)
 
-        messenger.start_progress(total=len(suffixes), desc='Evaluating suffixes')
+        messenger.start_progress(total=len(suffixes), desc='Evaluating Suffixes')
         masks_to_remove = []
         for rule in suffixes:
             messenger.update_progress()

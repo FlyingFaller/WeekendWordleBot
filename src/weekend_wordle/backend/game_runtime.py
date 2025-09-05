@@ -15,7 +15,7 @@ def play_wordle(pattern_matrix: np.ndarray[np.uint8],
                 max_guesses: int = 6,
                 sort_func: Callable = None):
     
-    game_obj = wordle_game(pattern_matrix, guesses, answers, nprune_global, nprune_answers, sort_func = sort_func)
+    game_obj = WordleGame(pattern_matrix, guesses, answers, nprune_global, nprune_answers, sort_func = sort_func)
     answers_remaining = len(answers)
 
     if discord_printout:

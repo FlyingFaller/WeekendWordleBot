@@ -18,15 +18,15 @@ class InvalidPatternError(ValueError):
         self.reason = reason
         super().__init__(f"Invalid pattern '{pattern}': {reason}")
 
-class wordle_game:
+class WordleGame:
     def __init__(self, pattern_matrix: np.ndarray[np.uint8], 
-                 guesses: np.ndarray[str], 
-                 answers: np.ndarray[str], 
-                 nprune_global: int, 
-                 nprune_answers: int, 
-                 max_depth: int = 6, 
-                 cache: Cache|int|None = None,
-                 sort_func: Callable = None): # Still need to get a better automatic estimate for this
+                 guesses             : np.ndarray[str],
+                 answers             : np.ndarray[str],
+                 nprune_global       : int|None       = None,
+                 nprune_answers      : int|None       = None,
+                 max_depth           : int|None       = None,
+                 cache               : Cache|int|None = None,
+                 sort_func           : Callable       = None): 
     
         if not set(answers).issubset(set(guesses)):
             raise Exception(f'Guess set must completely contain all answers in answer set.')
@@ -57,16 +57,9 @@ class wordle_game:
         self.nprune_answers = nprune_answers
         self.max_depth = max_depth
 
-        if isinstance(cache, int):
-            self.cache = Cache(cache)
-        elif isinstance(cache, Cache):
+        self._cache = None
+        if cache is not None:
             self.cache = cache
-        elif cache is None:
-            cache_size = np.ceil((514.6905/0.75)*(nprune_global+nprune_answers)**(3.34425)) # Experimentally measured for no preprogrammed initial guess
-            cache_size = min(cache_size, 2_097_152) # 0.25 GB cache segment size (1 cache entry takes 128 bytes) 
-            self.cache = Cache(int(cache_size))
-        else:
-            raise Exception(f'Wrong type for cache. Expected int or Cache and got {type(cache)}.')
 
         self.guesses_played = []
         self.patterns_seen = []
@@ -78,6 +71,34 @@ class wordle_game:
             self.sort_func = lambda word: wordfreq.word_frequency(word, 'en')
         else:
             self.sort_func = sort_func
+
+    @property
+    def cache(self) -> Cache | None:
+        return self._cache
+    
+    @cache.setter
+    def cache(self, value: Cache | int):
+        if self._cache is not None:
+            raise AttributeError("Cache object has already been created and cannot be replaced.")
+        if isinstance(value, int):
+            self._cache = Cache(value)
+        elif isinstance(value, Cache):
+            self._cache = value
+        else:
+            raise TypeError(f'Cache must be of type Cache or int, not {type(value)}.')
+
+    def _validate_cache(self) -> None:
+        """
+        Creates the cache with an optimal initial size if it doesn't exist.
+        """
+        if self._cache is None:
+            if self.nprune_global is None or self.nprune_answers is None:
+                raise ValueError("Cannot create cache: nprune_global and nprune_answers must be set first.")
+            
+            # Auto-sizing logic based on the *current* nprune values
+            cache_size = np.ceil((514.6905/0.75)*(self.nprune_global + self.nprune_answers)**(3.34425))
+            cache_size = min(cache_size, 2_097_152) 
+            self._cache = Cache(int(cache_size))        
 
     def _sort_key(self, item):
         word = item[0]
@@ -199,6 +220,8 @@ class wordle_game:
         return ret_str
 
     def compute_next_guess(self, progress_array: np.ndarray[np.float64] = None) -> dict:
+        self._validate_cache()
+
         current_ans_idxs = self.ans_idxs[-1]
         if self.solved or len(current_ans_idxs) == 1:
             solution = self.answer_set[current_ans_idxs[0]]
@@ -220,7 +243,7 @@ class wordle_game:
                                            self.nprune_global, 
                                            self.nprune_answers,
                                            self.max_depth,
-                                           self.cache,
+                                           self._cache,
                                            progress_array)
         words, scores, event_counter = recursive_results
         end_time = time.time()

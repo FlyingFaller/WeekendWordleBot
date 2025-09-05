@@ -20,6 +20,7 @@ from weekend_wordle.backend.helpers import *
 from weekend_wordle.backend.classifier import filter_words_by_probability, load_classifier, get_word_features
 from weekend_wordle.gui.setup.loading_widget import GetWordsWidget, ScrapeWordsWidget
 from weekend_wordle.gui.setup.filter_widget import FilterSuffixWidget, FilterFrequencyWidget, FilterPOSWidget, FilterProbabilityWidget
+from weekend_wordle.backend.core import WordleGame
 
 class LoadingScreen(Screen):
     """A screen to display while the backend is loading data."""
@@ -28,11 +29,11 @@ class LoadingScreen(Screen):
     def __init__(self, config: dict) -> None:
         super().__init__()
         self.config = config
+        self.worker: Worker = None
 
     def compose(self) -> ComposeResult:
         """Create child widgets for the screen."""
         yield Header()
-        # yield Static("Loading backend data...", id="loading_text")
         yield RichLog(id="log_output", highlight=False, markup=True)
 
         gradient = Gradient.from_colors("#4795de", "#bb637a")
@@ -45,9 +46,9 @@ class LoadingScreen(Screen):
 
     def on_mount(self) -> None:
         """Called when the screen is mounted. Starts the backend worker."""
-        self.run_worker(self.load_backend_data, thread=True)
+        self.worker = self.run_worker(self.load_backend_data, thread=True, exit_on_error=False)
 
-    def load_backend_data(self) -> None:
+    def load_backend_data(self) -> WordleGame:
         """
         This function is executed by the worker.
         It creates a messenger and passes it to the backend.
@@ -70,10 +71,10 @@ class LoadingScreen(Screen):
             positive_words = reduce(np.union1d, positive_word_tuple)
             word_features = get_word_features(all_words=guesses, **clss_cfg['word_features'], messenger=messenger)
             classifier_sort_func = load_classifier(word_features, 
-                                                   positive_words=positive_words, 
-                                                   all_words=guesses, 
-                                                   **clss_cfg['model'],
-                                                   messenger=messenger)
+                                                positive_words=positive_words, 
+                                                all_words=guesses, 
+                                                **clss_cfg['model'],
+                                                messenger=messenger)
             
         ### Filter Answers ###
         filtered_answers = answers.copy()
@@ -83,30 +84,37 @@ class LoadingScreen(Screen):
             if filter_type is FilterSuffixWidget:
                 filter_words = get_words(**filter_contents['get_words'], messenger=messenger)
                 filtered_answers = filter_words_by_suffix(filtered_answers,
-                                                          filter_words,
-                                                          filter_contents['suffixes'],
-                                                          messenger=messenger)
+                                                        filter_words,
+                                                        filter_contents['suffixes'],
+                                                        messenger=messenger)
             elif filter_type is FilterFrequencyWidget:
                 filtered_answers = filter_words_by_frequency(filtered_answers, 
-                                                             filter_contents['min_freq'],
-                                                             messenger=messenger)
+                                                            filter_contents['min_freq'],
+                                                            messenger=messenger)
             elif filter_type is FilterPOSWidget:
                 filtered_answers = filter_words_by_POS(filtered_answers, 
-                                                       **filter_contents,
-                                                       messenger=messenger)
+                                                    **filter_contents,
+                                                    messenger=messenger)
             elif filter_type is FilterProbabilityWidget and self.config['classifier']:
-                filter_words_by_probability(classifier_sort_func, 
-                                            filtered_answers,
-                                            filter_contents['threshold'],
-                                            messenger=messenger)
-
+                filtered_answers = filter_words_by_probability(classifier_sort_func, 
+                                                            filtered_answers,
+                                                            filter_contents['threshold'],
+                                                            messenger=messenger)
+            game_obj = WordleGame(pattern_matrix,
+                                  guesses,
+                                  filtered_answers,
+                                  sort_func = classifier_sort_func if self.config['sort'] == 'Classifier' and self.config['classifier'] else None)
+        
+            return game_obj
 
     def on_worker_state_changed(self, event: Worker.StateChanged) -> None:
         """Called when the worker's state changes."""
         if event.state == WorkerState.SUCCESS:
             log = self.query_one(RichLog)
             log.write("\n[bold green]Loading complete! Starting game...[/bold green]")
-            # self.set_timer(1.5, self.start_game) # Short delay to show completion message
+            self.set_timer(3, self.start_game) # Short delay to show completion message
+
+
         elif event.state == WorkerState.ERROR:
             log = self.query_one(RichLog)
             log.write("\n[bold red]FATAL ERROR:[/bold red] Backend loading failed.")
@@ -115,7 +123,7 @@ class LoadingScreen(Screen):
 
     def start_game(self) -> None:
         """Switches to the main game screen."""
-        self.app.switch_screen(GameScreen())
+        self.app.switch_screen(GameScreen(self.worker.result))
 
     # # --- Message Handlers for TextualMessenger ---
 
@@ -132,9 +140,6 @@ class LoadingScreen(Screen):
         p_bar.progress = 0
 
         p_bar.border_title = message.description
-        
-        # loading_text = self.query_one("#loading_text", Static)
-        # loading_text.update(message.description)
 
     def on_textual_messenger_progress_update(
         self, message: TextualMessenger.ProgressUpdate
