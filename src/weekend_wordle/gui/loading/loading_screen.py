@@ -112,7 +112,7 @@ class LoadingScreen(Screen):
         if event.state == WorkerState.SUCCESS:
             log = self.query_one(RichLog)
             log.write("\n[bold green]Loading complete! Starting game...[/bold green]")
-            self.set_timer(3, self.start_game) # Short delay to show completion message
+            self.set_timer(1.0, self.start_game) # Short delay to show completion message
 
 
         elif event.state == WorkerState.ERROR:
