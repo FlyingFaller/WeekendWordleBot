@@ -1,20 +1,55 @@
 Screen {
     background: #121213;
-    color: $text;
-    layout: vertical;
+    align: center middle;
+    layers: below above;
 }
 
-#settings_dialog {
-    align: center middle;
-    width: 100%;
+#settings_container {
+    overflow-x: auto; /* Add this line */
+}
+
+#left_pane, #right_pane {
+    width: 1fr;
     height: 100%;
 }
 
-#title {
-    padding-bottom: 2;
-    text-style: bold;
+#left_pane {
+    margin-right: 2;
+    margin-left: 1;
+    margin-top: 1;
+    border: round gray;
+    padding: 1;
+    overflow-y: auto; /* Add this line */
+    min-width: 30;
 }
 
-.subtitle {
-    text-style: italic;
+#right_pane {
+    margin-left: 2;
+    margin-right: 1;
+    margin-top: 1;
+    min-width: 30;
 }
+
+.spacer {
+    height: 1fr;
+    min-height: 1;
+}
+
+#copy_button {
+    layer: above;
+    offset-y: 0;
+    offset-x: -2;
+    dock: right;
+    height: 1;
+    max-width: 8;
+    border: none;
+}
+
+#discord_output {
+    border: round gray;
+    background: transparent 0%;
+    padding: 1 2;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
