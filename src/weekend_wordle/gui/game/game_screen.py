@@ -11,6 +11,7 @@ from weekend_wordle.gui.game.sidebar_widget import Sidebar, ResultsTable, StatsT
 from weekend_wordle.gui.game.progress_widget import PatchedProgressBar
 from weekend_wordle.gui.game.text_processors import TextProcessor, FigletProcessor
 from weekend_wordle.backend.core import WordleGame
+from weekend_wordle.gui.settings.settings_screen import SettingsScreen
 
 class GameScreen(Screen):
     """The main screen for the Wordle game, acting as an orchestrator."""
@@ -19,6 +20,8 @@ class GameScreen(Screen):
     use_figlet = True
     TILE_ASPECT_RATIO = 2.0
     CSS_PATH = "game_screen.tcss"
+    BINDINGS = [("ctrl+s", "open_settings", "Settings"),
+                ("ctrl+z", "undo_move", "Undo Move")]
 
     def __init__(self, game_obj: WordleGame):
         super().__init__()
@@ -116,3 +119,10 @@ class GameScreen(Screen):
             progress_bar.advance(1)
         else:
             progress_bar.progress = 0
+
+    def action_open_settings(self) -> None:
+        """Called when the user presses Ctrl+S to toggle the settings screen."""
+        self.app.push_screen(SettingsScreen(self.game_obj))
+
+    def action_undo_move(self) -> None:
+        pass
