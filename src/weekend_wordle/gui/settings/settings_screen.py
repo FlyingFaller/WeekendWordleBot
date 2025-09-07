@@ -12,10 +12,10 @@ class SettingsScreen(Screen):
     CSS_PATH = "settings_screen.tcss"
     BINDINGS = [("ctrl+s", "close_screen", "Save and Exit")]
 
-    def __init__(self, game_obj: WordleGame):
+    def __init__(self, game_obj: WordleGame, game_number: int):
         super().__init__()
         self.game_obj = game_obj
-        self.last_game_number: int | None = None
+        self.game_number: int | None = game_number
         self.discord_text: str|None = None
 
     def get_default_game_number(self) -> int:
@@ -75,7 +75,7 @@ class SettingsScreen(Screen):
 
         # Set game number and update discord output
         game_num_input = self.query_one("#game_number", Input)
-        default_game_num = self.last_game_number if self.last_game_number is not None else self.get_default_game_number()
+        default_game_num = self.game_number if self.game_number is not None else self.get_default_game_number()
         game_num_input.value = str(default_game_num)
         self.update_discord_output(game_num_input)
 
@@ -98,7 +98,7 @@ class SettingsScreen(Screen):
         output_log = self.query_one(RichLog)
         if game_num_input.is_valid and game_num_input.value:
             game_number = int(game_num_input.value)
-            self.last_game_number = game_number
+            self.game_number = game_number
             # Assuming get_discord_printout returns a string
             self.discord_text = self.game_obj.get_discord_printout(game_number=game_number)
             output_log.clear()
@@ -125,5 +125,6 @@ class SettingsScreen(Screen):
         except (ValueError, AttributeError) as e:
             self.notify(f"Error saving settings: {e}", severity="error")
 
-        self.app.pop_screen()
+        # self.app.pop_screen()
+        self.dismiss(self.game_number)
 

@@ -3,79 +3,86 @@ Defines the sidebar and its child components for the Wordle Solver UI.
 
 - ResultsTable: A DataTable widget to display word suggestions and scores.
 - StatsTable: A DataTable to display miscellaneous game statistics.
-- Sidebar: A container for the ResultsTable and StatsTable.
+- Sidebar: a container for the ResultsTable and StatsTable.
 """
-import random
 from textual.app import ComposeResult
 from textual.containers import Vertical
 from textual.widgets import DataTable, Static
+
+from weekend_wordle.backend.core import WordleGame
+from weekend_wordle.backend.cache import Cache
+from weekend_wordle.config import EVENTS
 
 class ResultsTable(Static):
     """A DataTable widget to display word suggestions."""
     
     BORDER_TITLE = "Top Computer Answers"
 
-    def __init__(self) -> None:
-        super().__init__()
-        self.dummy_rows = [
-            ("1", "SLATE", "9.8"), ("2", "CRANE", "9.7"),
-            ("3", "TRACE", "9.6"), ("4", "ROAST", "9.5"),
-            ("5", "LATER", "9.4"), ("6", "ARISE", "9.3"),
-            ("7", "IRATE", "9.2"), ("8", "STARE", "9.1"),
-            ("9", "RAISE", "9.0"), ("10", "LEAST", "8.9"),
-        ]
-
     def compose(self) -> ComposeResult:
         """Creates the table and its columns."""
-        yield DataTable()
+        yield DataTable(zebra_stripes = True, cursor_type = 'row')
 
     def on_mount(self) -> None:
-        """Adds columns and dummy data to the table."""
+        """Adds columns to the table."""
         table = self.query_one(DataTable)
-        table.cursor_type = 'row'
-        table.zebra_stripes = True
-        table.add_columns("Rank", "Word", "Score")
+        table.add_columns("Rank", "Word", "Avrg.", "Total", "Notes")
 
-        for row in self.dummy_rows:
-            table.add_row(*row)
+    def update_data(self, game_obj: WordleGame, sorted_results: list[tuple[str, float]]) -> None:
+        """Clears and repopulates the table with new results."""
+        table = self.query_one(DataTable)
+        table.clear()
+        
+        answers_remaining = len(game_obj.ans_idxs[-1])
+        if answers_remaining == 0:
+            return
+
+        max_len = len(str(int(max(score for _, score in sorted_results)))) if sorted_results else 1
+
+        for i, (word, score) in enumerate(sorted_results):
+            annotation = ""
+            if word in set(game_obj.current_answer_set):
+                annotation = "\u2731"
             
-        table.move_cursor(row=0)
+            # Use score/answers_remaining for the score column, and the raw score in notes
+            average_guesses = f"{score/answers_remaining:.4f}"
+            total_guesses = f"{score:<{max_len}}"
+
+            table.add_row(str(i + 1), word.upper(), average_guesses, total_guesses, annotation)
+        
+        if sorted_results:
+            table.move_cursor(row=0)
+
 
 class StatsTable(Static):
     """A widget to display miscellaneous game statistics."""
 
     BORDER_TITLE = "Stats"
 
-    EVENTS = [
-        ('cache_hits', 'Cache hits'), ('entropy_skips', 'Entropy loop skips'),
-        ('entropy_exits', 'Entropy loop exits'), ('winning_patterns', 'Winning patterns found'),
-        ('low_pattern_counts', 'Low answer count patterns found'), ('recursions_queued', 'Recursions queued'),
-        ('depth_limit', 'Depth limits reached while recursing'),
-        ('mins_exceeded_simple', 'Min scores exceeded during simple calcs'),
-        ('recursions_called', 'Recursions called'), ('mins_exceeded_recurse', 'Min scores exceeded during recursion'),
-        ('mins_after_recurse', 'New min scores found after recursing'),
-        ('mins_without_recurse', 'New min scores found without recursing'),
-        ('leaf_calcs_complete', 'Leaf node calculations completed in full'),
-    ]
-
     def compose(self) -> ComposeResult:
         """Creates the stats table."""
-        yield DataTable()
+        yield DataTable(cursor_type = 'none', zebra_stripes = True)
 
     def on_mount(self) -> None:
-        """Populates the stats table with dummy data."""
+        """Populates the stats table."""
         table = self.query_one(DataTable)
-        table.cursor_type = 'none'
+        # table.cursor_type = 'none'
         table.add_columns("Statistic", "Value")
         table.can_focus = False
-        table.zebra_stripes = True
+        # table.zebra_stripes = True
 
-        for _, description in self.EVENTS:
-            value = f"{random.randint(1000, 100000):,}"
-            table.add_row(description, value)
+    def update_data(self, event_counts, cache: Cache) -> None:
+        """Clears and repopulates the table with new stats."""
+        table = self.query_one(DataTable)
+        table.clear()
 
-        table.add_row("Cache entries", f"{random.randint(500, 2000):,}")
-        table.add_row("Cache segments", f"{random.randint(5, 20):,}")
+        for name, description in EVENTS:
+            value = getattr(event_counts, name)
+            table.add_row(description, f"{value:,}")
+
+        if cache:
+            table.add_row("Cache entries", f"{cache.nentries():,}")
+            table.add_row("Cache segments", f"{cache.nsegments():,}")
+
 
 class Sidebar(Vertical):
     """The sidebar container widget."""
@@ -84,3 +91,4 @@ class Sidebar(Vertical):
         """Renders the sidebar's tables."""
         yield ResultsTable()
         yield StatsTable()
+

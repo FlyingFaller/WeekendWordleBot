@@ -1,8 +1,14 @@
 from pathlib import Path
+from numba import get_num_threads
 
 # Potentially temporary root path placement
 PROJECT_ROOT = Path(__file__).parent.parent
 DATA_ROOT = 'C:/Users/PELICAN-5/Documents/WeekendWordleBot/'
+
+NTHREADS = get_num_threads()
+
+STARTING_GUESS = "TALES"
+STARTING_GUESS_STATS = ('-', '-')
 
 GREEN = 2
 YELLOW = 1

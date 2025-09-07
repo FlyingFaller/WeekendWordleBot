@@ -25,6 +25,7 @@ DataTable {
 
 ResultsTable {
     border: round $standard-gray;
+    max-height: 13; 
 }
 
 StatsTable {
