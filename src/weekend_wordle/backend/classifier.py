@@ -11,25 +11,7 @@ from typing import Callable
 from weekend_wordle.backend.messenger import UIMessenger, ConsoleMessenger
 from weekend_wordle.backend.helpers import get_messenger
 
-DEFAULT_CONFIG = {
-    'use_vectors': True,
-    'spy_rate': 0.15,
-    'max_iterations': 1000,
-    'convergence_tolerance': 1e-2,
-    'random_seed': None,
-    'evaluation_threshold': 0.07,
-    'explicit_features': {
-        'frequency': 1.0, 
-        'is_regular_plural': 1.0, 
-        'is_irregular_plural': 1.0,
-        'is_past_tense': 1.0, 
-        'is_adjective': 1.0,
-        'is_proper_noun': 1.0, 
-        'is_gerund': 1.0, 
-        'vowel_count': 1.0, 
-        'has_double_letter': 1.0
-    }
-}
+from weekend_wordle.config import CLASSIFIER_CONFIG
 
 def load_spacy_model(model_name="en_core_web_lg",
                      messenger: UIMessenger = None) -> spacy.language.Language:
@@ -159,7 +141,7 @@ def train_classifier(
     feature_df: pd.DataFrame, 
     positive_words: np.ndarray,
     all_words: np.ndarray, 
-    config: dict = DEFAULT_CONFIG,
+    config: dict = CLASSIFIER_CONFIG,
     messenger: UIMessenger = None 
     ) -> dict:
     """Trains the PU classifier from scratch and evaluates its performance."""
@@ -272,7 +254,7 @@ def load_classifier(
     save: bool = True,
     positive_words: np.ndarray = None,
     all_words: np.ndarray = None,
-    config: dict = DEFAULT_CONFIG,
+    config: dict = CLASSIFIER_CONFIG,
     messenger: UIMessenger = None
     ) -> Callable:
     """Loads a pre-trained classifier or retrains one if needed."""

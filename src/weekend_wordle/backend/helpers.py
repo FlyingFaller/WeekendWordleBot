@@ -18,36 +18,7 @@ from pathlib import Path
 from weekend_wordle.backend.cache import Cache
 from weekend_wordle.backend.messenger import UIMessenger, ConsoleMessenger
 
-from weekend_wordle import PROJECT_ROOT
-
-### DEFAULTS ###
-VALID_GUESSES_URL = "https://gist.github.com/dracos/dd0668f281e685bad51479e5acaadb93/raw/6bfa15d263d6d5b63840a8e5b64e04b382fdb079/valid-wordle-words.txt"
-VALID_GUESSES_FILE = "data/valid_guesses.txt"
-ORIGINAL_ANSWERS_URL = "https://gist.github.com/cfreshman/a03ef2cba789d8cf00c08f767e0fad7b/raw/c46f451920d5cf6326d550fb2d6abb1642717852/wordle-answers-alphabetical.txt"
-ORIGINAL_ANSWERS_FILE = "data/original_answers.txt"
-PAST_ANSWERS_FILE = 'data/past_answers.txt'
-PAST_ANSWERS_URL = 'https://www.rockpapershotgun.com/wordle-past-answers'
-ENGLISH_DICTIONARY_FILE = "data/en_US-large.txt"
-DEFAULT_PATTERN_MATRIX_FILE = "data/pattern_matrix.npy"
-GREEN = 2
-YELLOW = 1
-GRAY = 0
-
-EVENTS = [
-    ('cache_hits', 'Cache hits'),
-    ('entropy_skips', 'Entropy loop skips'),
-    ('entropy_exits', 'Entropy loop exits'),
-    ('winning_patterns', 'Winning patterns found'),
-    ('low_pattern_counts', 'Low answer count patterns found'),
-    ('recursions_queued', 'Recursions queued'),
-    ('depth_limit', 'Depth limits reached while recursing'),
-    ('mins_exceeded_simple', 'Min scores exceeded during simple calcs'),
-    ('recursions_called', 'Recursions called'),
-    ('mins_exceeded_recurse', 'Min scores exceeded during recursion'),
-    ('mins_after_recurse', 'New min scores found after recursing'),
-    ('mins_without_recurse', 'New min scores found without recursing'),
-    ('leaf_calcs_complete', 'Leaf node calculations completed in full'),
-]
+from weekend_wordle.config import *
 
 ### FUNCTIONS ###
 def get_messenger(messenger: UIMessenger = None) -> UIMessenger:
@@ -135,7 +106,7 @@ def precompute_pattern_matrix(
 
 def get_pattern_matrix(guesses:np.ndarray[str], 
                        answers: np.ndarray[str], 
-                       savefile: str = DEFAULT_PATTERN_MATRIX_FILE, 
+                       savefile: str = PATTERN_MATRIX_FILE, 
                        recompute: bool = False, 
                        save: bool = True,
                        messenger: UIMessenger = None) -> np.ndarray:

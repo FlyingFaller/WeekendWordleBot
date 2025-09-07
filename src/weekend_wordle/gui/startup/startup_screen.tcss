@@ -1,7 +1,5 @@
 Screen {
-    background: #121213;
-    color: $text;
-    layout: vertical;
+    background: $screen-background;
 }
 
 #startup_dialog {

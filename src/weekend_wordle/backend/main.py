@@ -4,6 +4,7 @@ from weekend_wordle.backend.core import *
 from weekend_wordle.backend.engine import *
 from weekend_wordle.backend.game_runtime import *
 from weekend_wordle.backend.classifier import *
+from weekend_wordle.config import *
 
 def run() -> None:
     # Mandatory loads

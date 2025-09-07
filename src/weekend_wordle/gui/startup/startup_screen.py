@@ -17,7 +17,7 @@ class StartupScreen(Screen):
                 "> Weekend Wordle", 
                 font="georgia11", 
                 justify="center",
-                colors=["#4795de", "#bb637a"], 
+                colors=["$gradient-start", "$gradient-end"], 
                 horizontal=True
             ),
             Label("Press any key to start", classes="subtitle"),

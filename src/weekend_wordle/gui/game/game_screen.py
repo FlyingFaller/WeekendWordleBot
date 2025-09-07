@@ -6,6 +6,7 @@ from textual import events
 from textual.color import Gradient
 
 # Import refactored components
+from weekend_wordle.config import APP_COLORS
 from weekend_wordle.gui.game.board_widget import WordleBoard, GameState
 from weekend_wordle.gui.game.sidebar_widget import Sidebar, ResultsTable, StatsTable
 from weekend_wordle.gui.game.progress_widget import PatchedProgressBar
@@ -36,7 +37,7 @@ class GameScreen(Screen):
             with Container(id="board_wrapper"):
                 yield WordleBoard(id="wordle_board")
 
-        gradient = Gradient.from_colors("#4795de", "#bb637a")
+        gradient = Gradient.from_colors(APP_COLORS["gradient-start"], APP_COLORS["gradient-end"])
         yield PatchedProgressBar(
             gradient=gradient,
             show_time_elapsed=True, # Explicitly enable the new feature

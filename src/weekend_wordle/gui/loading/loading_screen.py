@@ -9,9 +9,9 @@ import numpy as np
 
 from textual.app import ComposeResult
 from textual.screen import Screen
-from textual.widgets import Header, Footer, Static, ProgressBar, RichLog
+from textual.widgets import Header, Footer, RichLog
 from textual.worker import Worker, WorkerState
-from textual.color import Gradient
+from textual.color import Gradient, Color
 
 from weekend_wordle.gui.game.game_screen import GameScreen
 from weekend_wordle.backend.messenger import TextualMessenger
@@ -21,6 +21,7 @@ from weekend_wordle.backend.classifier import filter_words_by_probability, load_
 from weekend_wordle.gui.setup.loading_widget import GetWordsWidget, ScrapeWordsWidget
 from weekend_wordle.gui.setup.filter_widget import FilterSuffixWidget, FilterFrequencyWidget, FilterPOSWidget, FilterProbabilityWidget
 from weekend_wordle.backend.core import WordleGame
+from weekend_wordle.config import NPRUNE_GLOBAL_DEFAULT, NPRUNE_ANSWERS_DEFAULT, MAX_DEPTH_DEFAULT, APP_COLORS
 
 class LoadingScreen(Screen):
     """A screen to display while the backend is loading data."""
@@ -35,8 +36,7 @@ class LoadingScreen(Screen):
         """Create child widgets for the screen."""
         yield Header()
         yield RichLog(id="log_output", highlight=False, markup=True)
-
-        gradient = Gradient.from_colors("#4795de", "#bb637a")
+        gradient = Gradient.from_colors(APP_COLORS["gradient-start"], APP_COLORS["gradient-end"])
         yield PatchedProgressBar(
             gradient=gradient,
             show_time_elapsed=True, # Explicitly enable the new feature
@@ -103,6 +103,9 @@ class LoadingScreen(Screen):
             game_obj = WordleGame(pattern_matrix,
                                   guesses,
                                   filtered_answers,
+                                  nprune_global = NPRUNE_GLOBAL_DEFAULT,
+                                  nprune_answers = NPRUNE_ANSWERS_DEFAULT,
+                                  max_depth = MAX_DEPTH_DEFAULT,
                                   sort_func = classifier_sort_func if self.config['sort'] == 'Classifier' and self.config['classifier'] else None)
         
             return game_obj

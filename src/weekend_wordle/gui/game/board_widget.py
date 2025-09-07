@@ -9,10 +9,11 @@ from textual.reactive import reactive
 from textual.message import Message
 from textual.app import ComposeResult
 from textual import events
+from weekend_wordle.config import GRAY, YELLOW, GREEN, APP_COLORS
 
 # --- Constants and Enums ---
-COLORS = ("#3a3a3c", "#bbaf30", "#16ac55")
-COLOR_CHARS = {"-": 0, "g": 2, "y": 1}
+COLORS = (APP_COLORS['tile-gray'], APP_COLORS['tile-yellow'], APP_COLORS['tile-green'])
+COLOR_CHARS = {"-": GRAY, "g": GREEN, "y": YELLOW}
 
 class GameState(Enum):
     INPUT_WORD = auto()

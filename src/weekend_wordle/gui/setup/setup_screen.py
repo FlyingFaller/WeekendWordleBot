@@ -30,16 +30,7 @@ from weekend_wordle.gui.setup.filter_widget import (FilterSuffixWidget,
                                                     FilterFrequencyWidget,
                                                     FilterPOSWidget,
                                                     FilterProbabilityWidget)
-
-from weekend_wordle.backend.helpers import (ORIGINAL_ANSWERS_FILE,
-                                            ORIGINAL_ANSWERS_URL,
-                                            PAST_ANSWERS_FILE,
-                                            PAST_ANSWERS_URL,
-                                            VALID_GUESSES_FILE,
-                                            VALID_GUESSES_URL,
-                                            DEFAULT_PATTERN_MATRIX_FILE,
-                                            ENGLISH_DICTIONARY_FILE)
-DATA_ROOT = 'C:/Users/PELICAN-5/Documents/WeekendWordleBot/'
+from weekend_wordle.config import *
 
 class ClassifierSection(Container):
     """A widget for configuring the entire classifier training pipeline."""
@@ -51,14 +42,20 @@ class ClassifierSection(Container):
             self.enabled = enabled
 
     def __init__(self, 
-                 default_state=True, 
-                 collapse_on_disable=True,
+                 default_state: bool = True, 
+                 collapse_on_disable: bool = True,
+                 positive_words_defaults: dict = {},
+                 word_features_defaults: dict = {},
+                 load_model_defaults: dict = {},
                  *args,
                  **kwargs
                  ) -> None:
         super().__init__(*args, **kwargs)
-        self._default_state = default_state
-        self._collapse_on_disable = collapse_on_disable
+        self._default_state           = default_state
+        self._collapse_on_disable     = collapse_on_disable
+        self._positive_words_defaults = positive_words_defaults
+        self._word_features_defaults  = word_features_defaults
+        self._load_model_defaults     = load_model_defaults
 
     def compose(self) -> ComposeResult:
         """Create the child widgets for the classifier section."""
@@ -69,25 +66,9 @@ class ClassifierSection(Container):
             yield Rule()
             yield Switch(id="enable_switch", value=self._default_state)
         
-        # The rest of the content widgets...
-        widget_constructors = {
-            'Get Words': lambda: GetWordsWidget(),
-            'Scrape Words': lambda: ScrapeWordsWidget()
-        }
-        default_widgets = [('Original Answers', GetWordsWidget(savefile_path=DATA_ROOT+ORIGINAL_ANSWERS_FILE, url=ORIGINAL_ANSWERS_URL, )),
-                           ('Past Answers', ScrapeWordsWidget(savefile_path=DATA_ROOT+PAST_ANSWERS_FILE, url=PAST_ANSWERS_URL, refetch=True))]
-        
-        yield DynamicCollapsibleList(title='Positive Words', 
-                                     widget_constructors=widget_constructors,
-                                     default_widgets=default_widgets,
-                                     id="positive_words_list")
-        
-        yield GetWordFeaturesWidget(title='Word Features',
-                                    id="word_features",
-                                    savefile_path=DATA_ROOT+'data/word_features.pkl')
-        yield LoadModelWidget(title='Load Model', 
-                              id="load_model",
-                              savefile_path=DATA_ROOT+'data/wordle_classifier.pkl')
+        yield DynamicCollapsibleList(title='Positive Words', **self._positive_words_defaults, id="positive_words_list")
+        yield GetWordFeaturesWidget(title='Word Features',**self._word_features_defaults, id="word_features")
+        yield LoadModelWidget(title='Load Model', **self._load_model_defaults, id="load_model")
 
         yield Rule(classes="bottom-bar", id="bottom_rule")
 
@@ -234,11 +215,30 @@ class SetupScreen(Screen):
             )
             yield GetPatternMatrixWidget(
                 title="Pattern Matrix",
-                savefile_path=DATA_ROOT+DEFAULT_PATTERN_MATRIX_FILE,
+                savefile_path=DATA_ROOT+PATTERN_MATRIX_FILE,
                 id='get_pattern_matrix'
             )
-            
-            yield ClassifierSection(collapse_on_disable=False, id="classifier_section")
+
+            positive_words_defaults = {
+                'widget_constructors': {
+                    'Get Words': lambda: GetWordsWidget(),
+                    'Scrape Words': lambda: ScrapeWordsWidget()
+                },
+                'default_widgets': 
+                    [('Original Answers', GetWordsWidget(savefile_path=DATA_ROOT+ORIGINAL_ANSWERS_FILE, url=ORIGINAL_ANSWERS_URL, )),
+                    ('Past Answers', ScrapeWordsWidget(savefile_path=DATA_ROOT+PAST_ANSWERS_FILE, url=PAST_ANSWERS_URL, refetch=True))]
+            }
+            word_features_defaults = {
+                'savefile_path': DATA_ROOT + WORD_FEATURES_FILE
+            }
+            load_model_defaults = {
+                'savefile_path': DATA_ROOT + CLASSIFIER_MODEL_FILE
+            }
+            yield ClassifierSection(collapse_on_disable=False, 
+                                    positive_words_defaults=positive_words_defaults,
+                                    word_features_defaults=word_features_defaults,
+                                    load_model_defaults=load_model_defaults, 
+                                    id="classifier_section")
 
             with Horizontal(classes="section-header"):
                 yield Label("Apply Optional Filters to Answer Set")

@@ -1,4 +1,7 @@
 /* Styling for the SetupScreen and its components */
+Screen {
+    background: $screen-background;
+}
 
 #main_title {
     width: 100%;
@@ -10,7 +13,7 @@
 
 /* Scoped to LoadingWidget to avoid affecting other potential layouts */
 LoadingWidget {
-    border: round gray;
+    border: round $standard-gray;
     padding: 1 1 0 1; /* top/bottom, left/right */
     margin: 1 2;
     height: auto; /* Allow the widget to size to its content */
@@ -86,54 +89,54 @@ LoadingWidget .switch-container:empty {
 /* --- LoadClassifierWidget Specific Styles --- */
 
 /* Base styles for the Collapsible container itself */
-LoadClassifierWidget Collapsible {
-    background: #202020; /* Dim container when unfocused */
+LoadModelWidget Collapsible {
+    background: $widget-dark; /* Dim container when unfocused */
     background-tint: transparent 0%;
     margin: 1 2;
 }
 
-LoadClassifierWidget Collapsible:focus-within {
-    background: #202020; /* Bright container when focused */
+LoadModelWidget Collapsible:focus-within {
+    background: $widget-bright; /* Bright container when focused */
     background-tint: transparent 0%;
 }
 
 /* Make non-input widgets transparent to blend with the container */
-LoadClassifierWidget Collapsible Checkbox,
-LoadClassifierWidget Collapsible .feature-header,
-LoadClassifierWidget Collapsible .switch-group Static {
+LoadModelWidget Collapsible Checkbox,
+LoadModelWidget Collapsible .feature-header,
+LoadModelWidget Collapsible .switch-group Static {
     background: transparent;
 }
 
 /* Disable text highlighting when a checkbox is focused. */
-LoadClassifierWidget Collapsible Checkbox:focus {
+LoadModelWidget Collapsible Checkbox:focus {
     text-style: none;
 }
 
 /* --- Styles for Centering and Sizing ALL Collapsible Content --- */
 
 /* Center ALL column containers within the Collapsible area. */
-LoadClassifierWidget Collapsible .column-container {
+LoadModelWidget Collapsible .column-container {
     align-horizontal: center;
 }
 
 /* Give ALL columns within the Collapsible a consistent, smaller fixed width. */
-LoadClassifierWidget Collapsible .column {
+LoadModelWidget Collapsible .column {
     width: 42;
 }
 
 /* --- Unified Input Styles for the Collapsible Area --- */
 
-LoadClassifierWidget Collapsible Input {
+LoadModelWidget Collapsible Input {
     width: 15;                /* Shrunk input width */
-    background: #2C2C2C;     /* STATE 1 (Darkest) */
+    background: $widget-input-dark;     /* STATE 1 (Darkest) */
 }
 
-LoadClassifierWidget Collapsible Input:focus-within {
-    background: #3F3F3F;     /* STATE 2 (Medium) */
+LoadModelWidget Collapsible Input:focus-within {
+    background: $widget-input-medium;     /* STATE 2 (Medium) */
 }
 
-LoadClassifierWidget Collapsible Input:focus {
-    background: #4F4F4F;     /* STATE 3 (Brightest) */
+LoadModelWidget Collapsible Input:focus {
+    background: $widget-input-bright;     /* STATE 3 (Brightest) */
 }
 
 /* --- Styles for the FEATURE list section --- */
@@ -166,7 +169,7 @@ ExplicitFeatureWidget Checkbox {
 /* Style the main list container */
 DynamicCollapsibleList {
     height: auto;
-    border: round gray;
+    border: round $standard-gray;
     padding: 1 1 0 1;
     margin: 1 2;
 }
@@ -180,7 +183,7 @@ DynamicCollapsibleList > #add_item_select {
 
 /* Style the custom collapsible container */
 DeletableCollapsible {
-    background: #202020;
+    background: $widget-dark;
     background-tint: transparent 0%;
     margin: 1 1 1 1;
     padding: 1 0;
@@ -188,20 +191,20 @@ DeletableCollapsible {
 }
 
 DeletableCollapsible:focus-within {
-    background: #202020;
+    background: $widget-bright;
     background-tint: transparent 0%;
 }
 
 DeletableCollapsible Input {
-    background: #2C2C2C;
+    background: $widget-input-dark;
 }
 
 DeletableCollapsible Input:focus-within {
-    background: #3F3F3F;
+    background: $widget-input-medium;
 }
 
 DeletableCollapsible Input:focus {
-    background: #4F4F4F;
+    background: $widget-input-bright;
 }
 
 /* --- ClassifierSection Styles --- */
@@ -252,7 +255,7 @@ FilterFrequencyWidget,
 FilterPOSWidget,
 FilterSuffixWidget,
 FilterProbabilityWidget {
-    border: round gray;
+    border: round $standard-gray;
     padding: 1 1 0 1;
     margin: 1 2;
     height: auto;
@@ -333,7 +336,7 @@ _SuffixRuleWidget #remove_button {
 /* AnswerSortWidget */
 
 AnswerSortWidget {
-    border: round gray;
+    border: round $standard-gray;
     padding: 1 1 0 1;
     margin: 1 2;
     height: auto;

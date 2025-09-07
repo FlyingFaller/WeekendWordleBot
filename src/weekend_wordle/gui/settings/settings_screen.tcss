@@ -1,11 +1,10 @@
 Screen {
-    background: #121213;
-    align: center middle;
+    background: $screen-background;
     layers: below above;
 }
 
 #settings_container {
-    overflow-x: auto; /* Add this line */
+    overflow-x: auto; 
 }
 
 #left_pane, #right_pane {
@@ -17,9 +16,9 @@ Screen {
     margin-right: 2;
     margin-left: 1;
     margin-top: 1;
-    border: round gray;
+    border: round $standard-gray;
     padding: 1;
-    overflow-y: auto; /* Add this line */
+    overflow-y: auto;
     min-width: 30;
 }
 
@@ -46,7 +45,7 @@ Screen {
 }
 
 #discord_output {
-    border: round gray;
+    border: round $standard-gray;
     background: transparent 0%;
     padding: 1 2;
     overflow-y: auto;

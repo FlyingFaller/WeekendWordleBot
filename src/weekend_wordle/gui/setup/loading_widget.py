@@ -7,8 +7,7 @@ from textual.widgets import (Static,
                              Collapsible, 
                              Checkbox)
 
-from weekend_wordle.backend.classifier import DEFAULT_CONFIG
-from weekend_wordle.gui.setup.config_protocol import Configurable
+from weekend_wordle.config import *
 
 class LoadingWidget(Container):
     """A generic, extensible widget for configuring data loading."""
@@ -182,7 +181,7 @@ class ExplicitFeatureWidget(Container):
 class LoadModelWidget(GetPatternMatrixWidget):
     """A specialized widget for loading the word classifier with advanced options."""
 
-    def __init__(self, config: dict = DEFAULT_CONFIG, *args, **kwargs):
+    def __init__(self, config: dict = CLASSIFIER_CONFIG, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._config = config
 

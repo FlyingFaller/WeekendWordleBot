@@ -1,18 +1,18 @@
 Screen {
-    background: #121213;
-    color: $text;
-    layout: vertical;
+    background: $screen-background;
 }
+
 
 RichLog {
     background: transparent 0%;
+    overflow-y: auto;
 }
 
 /* --- Progress Bar Styling --- */
 PatchedProgressBar {
     dock: bottom;
     height: 3;
-    border: round gray;
+    border: round $standard-gray;
     margin: -1 0 1 0;
 }
 
@@ -21,9 +21,9 @@ ProgressBar > Bar {
 }
 
 Bar > .bar--indeterminate {
-    color: #4795de;
+    color: $progress-indeterminate;
 }
 
 Bar > .bar--complete {
-    color: #16ac55;
+    color: $progress-complete;
 }
