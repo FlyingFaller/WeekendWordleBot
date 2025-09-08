@@ -158,6 +158,8 @@ class WordleGame:
             self.patterns_seen.pop(-1)
             self.reduced_answer_set.pop(-1)
             self.ans_idxs.pop(-1)
+            self.failed = False
+            self.sovled = False
             self.update_game_state()
 
     def regenerate_answer_idxs(self):
