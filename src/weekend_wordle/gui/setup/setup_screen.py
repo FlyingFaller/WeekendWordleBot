@@ -294,4 +294,4 @@ class SetupScreen(Screen):
         config['filters']        = self.query_one('#answer_filters_list').get_config()
         config['sort']           = self.query_one('#answer_sort').get_config()
 
-        self.app.switch_screen(LoadingScreen(config))
+        self.app.push_screen(LoadingScreen(config))

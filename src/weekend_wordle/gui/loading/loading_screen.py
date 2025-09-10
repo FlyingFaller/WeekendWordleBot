@@ -11,7 +11,8 @@ from textual.app import ComposeResult
 from textual.screen import Screen
 from textual.widgets import Header, Footer, RichLog
 from textual.worker import Worker, WorkerState
-from textual.color import Gradient, Color
+from textual.color import Gradient
+from textual import events
 
 from weekend_wordle.gui.game.game_screen import GameScreen
 from weekend_wordle.backend.messenger import TextualMessenger
@@ -31,6 +32,7 @@ class LoadingScreen(Screen):
         super().__init__()
         self.config = config
         self.worker: Worker = None
+        self.loading_error = False
 
     def compose(self) -> ComposeResult:
         """Create child widgets for the screen."""
@@ -120,9 +122,16 @@ class LoadingScreen(Screen):
 
         elif event.state == WorkerState.ERROR:
             log = self.query_one(RichLog)
-            log.write("\n[bold red]FATAL ERROR:[/bold red] Backend loading failed.")
-            log.write(f"{event.worker.error}")
+            log.write("\n[bold red]FATAL ERROR:[/bold red] Backend loading failed.\n")
+            log.write(f"{event.worker.error}\n")
+            log.write('Press any key to return to setup screen.')
+            self.loading_error = True
 
+    def on_key(self, event: events.Key) -> None:
+        if self.loading_error:
+            event.prevent_default()
+            event.stop()
+            self.app.pop_screen()
 
     def start_game(self) -> None:
         """Switches to the main game screen."""
