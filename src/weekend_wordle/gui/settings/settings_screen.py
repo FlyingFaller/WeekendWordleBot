@@ -27,11 +27,6 @@ class SettingsScreen(Screen):
 
     def compose(self) -> ComposeResult:
         """Create the layout for the settings screen."""
-        # with Vertical(id="settings_dialog"):
-        #     yield Label("Settings", id="title")
-
-        # yield Button("Copy", variant="primary", id="copy_button")
-
         with Horizontal(id="settings_container"):
             left_pane = Vertical(id='left_pane')
             left_pane.border_title = "Game Settings"
@@ -54,8 +49,6 @@ class SettingsScreen(Screen):
                 yield Label("Game Number")
                 yield Input(validators=[Integer(minimum=0)], id="game_number")
 
-            # right_pane = Container(id='right_pane')
-            # right_pane.border_title = "Discord Copy"
             with Container(id='right_pane'):
                 copy_button =  Button("Copy", variant="primary", id="copy_button", compact=True)
                 copy_button.can_focus = False

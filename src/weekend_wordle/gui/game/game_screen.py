@@ -19,6 +19,7 @@ from weekend_wordle.gui.game.board_widget import WordleBoard
 from weekend_wordle.gui.game.sidebar_widget import Sidebar, ResultsTable, StatsTable
 from weekend_wordle.gui.game.progress_widget import PatchedProgressBar
 from weekend_wordle.gui.game.text_processors import FigletProcessor
+from weekend_wordle.gui.game.confirm_screen import ConfirmationDialog
 from weekend_wordle.backend.core import WordleGame, InvalidWordError, InvalidPatternError
 from weekend_wordle.gui.settings.settings_screen import SettingsScreen
 from weekend_wordle.backend.helpers import int_to_pattern
@@ -323,12 +324,11 @@ class GameScreen(Screen):
         if event.key == "enter":
             if len(state.active_word) == 5:
                 self._submit_word()
-            # This is the new logic path
             elif state.active_row == 0 and not state.active_word:
-                # Before starting the worker, we need a placeholder in the results history
-                # for the on_worker_state_changed handler to populate.
-                self.results_history.append(None)
-                self._start_computation()
+                event.stop()
+                dialog = ConfirmationDialog("Warning: You are about to start a long, uninteruptable computation.")
+                self.app.push_screen(dialog, self._start_initial_computation)
+
         elif event.key == "backspace" and state.active_word:
             self.board_state = replace(state, active_word=state.active_word[:-1])
         elif event.key == "tab":
@@ -356,6 +356,11 @@ class GameScreen(Screen):
             )
 
     # --- Helper & UI Methods ---
+    def _start_initial_computation(self, confirmed: bool) -> None:
+        """Called when the confirmation dialog is dismissed."""
+        if confirmed:
+            self.results_history.append(None)
+            self._start_computation()
 
     def _set_ui_disable(self, disabled: bool) -> None:
         """Disables or enables the UI elements visually."""
