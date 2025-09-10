@@ -83,3 +83,5 @@ APP_COLORS = {
     'widget-input-medium'   : '#3F3F3F',
     'widget-input-bright'   : '#4F4F4F'
 }
+
+INITIAL_SUGGESTION = ("TARSE", 15_152)
