@@ -5,24 +5,28 @@ from textual.widgets import Label
 from textual import events
 from textual_pyfiglet import FigletWidget
 
-from weekend_wordle.gui.setup.setup_screen import SetupScreen
+# Import your new loading screen
+from weekend_wordle.gui.startup.transitional_loading_screen import TransitionalLoading
+
 
 class StartupScreen(Screen):
     CSS_PATH = "startup_screen.tcss"
 
-    """The first screen the user sees. Dismissed by any key press."""
     def compose(self) -> ComposeResult:
         yield Vertical(
             FigletWidget(
-                "> Weekend Wordle", 
-                font="georgia11", 
+                "> Weekend Wordle",
+                font="georgia11",
                 justify="center",
-                colors=["$gradient-start", "$gradient-end"], 
+                colors=["$gradient-start", "$gradient-end"],
                 horizontal=True
             ),
             Label("Press any key to start", classes="subtitle"),
             id="startup_dialog",
         )
+
     def on_key(self, event: events.Key) -> None:
+        """Handle a key press on the startup screen."""
         event.stop()
-        self.app.switch_screen(SetupScreen())
+        # Simply switch to the loading screen. The worker will handle the rest.
+        self.app.switch_screen(TransitionalLoading())
