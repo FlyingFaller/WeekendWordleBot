@@ -11,6 +11,7 @@ class SettingsScreen(Screen):
 
     CSS_PATH = "settings_screen.tcss"
     BINDINGS = [("ctrl+s", "close_screen", "Save and Exit")]
+    AUTO_FOCUS = ""
 
     def __init__(self, game_obj: WordleGame, game_number: int):
         super().__init__()
