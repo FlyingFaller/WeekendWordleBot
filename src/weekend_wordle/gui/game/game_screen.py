@@ -24,7 +24,7 @@ from weekend_wordle.gui.settings.settings_screen import SettingsScreen
 from weekend_wordle.backend.helpers import int_to_pattern
 from textual.worker import Worker, WorkerState
 
-from weekend_wordle.config import APP_COLORS, NTHREADS
+from weekend_wordle.config import APP_COLORS, NTHREADS, INITIAL_SUGGESTION
 
 class GameScreen(Screen):
     """The main screen for the Wordle game, acting as the central controller."""
@@ -34,8 +34,6 @@ class GameScreen(Screen):
                 ("ctrl+z", "undo_move", "Undo Move")]
     TILE_ASPECT_RATIO = 2
 
-    INITIAL_SUGGESTION = ("TALES", 15_188)
-
     def __init__(self, game_obj: WordleGame):
         super().__init__()
         self.text_processor = FigletProcessor()
@@ -44,7 +42,7 @@ class GameScreen(Screen):
         self.results_history = []
 
         # --- Single Source of Truth ---
-        self.board_state = BoardState(suggestion=self.INITIAL_SUGGESTION[0])
+        self.board_state = BoardState(suggestion=INITIAL_SUGGESTION[0])
 
         # Worker stuff
         self.worker: Worker|None = None
@@ -69,7 +67,7 @@ class GameScreen(Screen):
         self.call_after_refresh(self.on_resize)
         # Initial render
         self.query_one(WordleBoard).render_state(self.board_state)
-        self.query_one(ResultsTable).update_data(self.game_obj, [self.INITIAL_SUGGESTION])
+        self.query_one(ResultsTable).update_data(self.game_obj, [INITIAL_SUGGESTION])
 
     # --- Centralized Input Handlers ---
 
@@ -153,7 +151,7 @@ class GameScreen(Screen):
         status = self.game_obj.get_game_state()
         new_guesses = self._format_guesses(status['guesses_played'], status['patterns_seen'])
         
-        suggestion = previous_results['recommendation'] if previous_results else self.INITIAL_SUGGESTION[0]
+        suggestion = previous_results['recommendation'] if previous_results else INITIAL_SUGGESTION[0]
 
         # Update the board state to allow editing the just-popped guess.
         self.board_state = replace(self.board_state,
@@ -196,12 +194,14 @@ class GameScreen(Screen):
         new_guesses = self._format_guesses(status['guesses_played'], status['patterns_seen'])
         self.board_state = replace(self.board_state, guesses=new_guesses)
 
-        if status['solved'] or status['failed']:
+        if status['solved'] or status['failed'] or len(new_guesses) > 5:
             self.board_state = replace(self.board_state, mode=GameState.GAME_OVER)
             if status['solved']:
                 self.app.notify("Congratulations, you solved it!", title="Solved!")
-            else:
+            elif status['failed']:
                 self.app.notify("No possible answers remain.", title="Failed", severity="error")
+            else:
+                self.app.notify("Guesses exhausted.", title="Failed", severity="error")
         else:
             self._start_computation()
 
@@ -308,7 +308,7 @@ class GameScreen(Screen):
         if results:
             results_table.update_data(self.game_obj, results['sorted_results'])
         else:
-            results_table.update_data(self.game_obj, [self.INITIAL_SUGGESTION])
+            results_table.update_data(self.game_obj, [INITIAL_SUGGESTION])
 
         if not clear_stats and results:
             stats_table.update_data(results['event_counts'], self.game_obj)
