@@ -12,7 +12,7 @@ Screen {
 #sidebar_container {
     width: 1fr;
     height: 100%;
-    padding: 1 2;
+    padding: 1 0 1 2;
     background: $screen-background;
     overflow-y: auto;
     align: left top;
@@ -43,7 +43,7 @@ StatsTable {
     height: 100%;
     align: right top;
     background: $screen-background;
-    padding: 1 2;
+    padding: 1 2 1 2;
     overflow: auto;
 }
 
