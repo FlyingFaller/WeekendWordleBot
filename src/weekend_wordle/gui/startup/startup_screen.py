@@ -24,5 +24,5 @@ class StartupScreen(Screen):
             id="startup_dialog",
         )
     def on_key(self, event: events.Key) -> None:
-        event.prevent_default()
+        event.stop()
         self.app.switch_screen(SetupScreen())

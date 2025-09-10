@@ -129,7 +129,6 @@ class LoadingScreen(Screen):
 
     def on_key(self, event: events.Key) -> None:
         if self.loading_error:
-            event.prevent_default()
             event.stop()
             self.app.pop_screen()
 
