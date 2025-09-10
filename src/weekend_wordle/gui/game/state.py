@@ -24,7 +24,7 @@ class BoardState:
     active_row: int = 0
     active_word: str = ""
     active_pattern: str = ""
-    suggestion: str = "SLATE"
+    suggestion: str = ""
     mode: GameState = GameState.INPUT_WORD
     focused_col: int = 0
 

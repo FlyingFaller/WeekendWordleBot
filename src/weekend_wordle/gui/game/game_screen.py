@@ -1,9 +1,10 @@
 from textual.app import ComposeResult
 from textual.containers import Container
 from textual.screen import Screen
-from textual.widgets import Footer, Header, ProgressBar, DataTable
+from textual.widgets import Footer, Header, DataTable
 from textual import events
 from textual.color import Gradient
+import numpy as np
 
 from dataclasses import replace
 
@@ -21,8 +22,9 @@ from weekend_wordle.gui.game.text_processors import FigletProcessor
 from weekend_wordle.backend.core import WordleGame, InvalidWordError, InvalidPatternError
 from weekend_wordle.gui.settings.settings_screen import SettingsScreen
 from weekend_wordle.backend.helpers import int_to_pattern
+from textual.worker import Worker, WorkerState
 
-from weekend_wordle.config import APP_COLORS
+from weekend_wordle.config import APP_COLORS, NTHREADS
 
 class GameScreen(Screen):
     """The main screen for the Wordle game, acting as the central controller."""
@@ -32,14 +34,22 @@ class GameScreen(Screen):
                 ("ctrl+z", "undo_move", "Undo Move")]
     TILE_ASPECT_RATIO = 2
 
+    INITIAL_SUGGESTION = ("TALES", 15_188)
+
     def __init__(self, game_obj: WordleGame):
         super().__init__()
         self.text_processor = FigletProcessor()
         self.game_obj = game_obj
         self.game_number = None
+        self.results_history = []
 
         # --- Single Source of Truth ---
-        self.board_state = BoardState()
+        self.board_state = BoardState(suggestion=self.INITIAL_SUGGESTION[0])
+
+        # Worker stuff
+        self.worker: Worker|None = None
+        self.progress_array: np.ndarray[np.int64]|None = None
+        self.progress_timer = None
 
     def compose(self) -> ComposeResult:
         """Creates the layout of the application."""
@@ -49,15 +59,17 @@ class GameScreen(Screen):
             with Container(id="board_wrapper"):
                 yield WordleBoard(id="wordle_board")
         gradient = Gradient.from_colors(APP_COLORS["gradient-start"], APP_COLORS["gradient-end"])
-        yield PatchedProgressBar(gradient=gradient, show_time_elapsed=True)
+        progress_bar = PatchedProgressBar(gradient=gradient, show_time_elapsed=True)
+        progress_bar.border_title = 'Computation Progress'
+        yield progress_bar
         yield Footer()
 
     def on_mount(self) -> None:
         """Initializes the game screen and renders the initial board state."""
-        self.set_interval(1 / 10, self.update_progress)
         self.call_after_refresh(self.on_resize)
         # Initial render
         self.query_one(WordleBoard).render_state(self.board_state)
+        self.query_one(ResultsTable).update_data(self.game_obj, [self.INITIAL_SUGGESTION])
 
     # --- Centralized Input Handlers ---
 
@@ -72,7 +84,8 @@ class GameScreen(Screen):
         elif old_state.mode == GameState.INPUT_PATTERN:
             self._handle_pattern_input(event)
         
-        # After any state change, command the board to re-render
+        # After any state change, command the board to re-render. This is the
+        # single source of rendering for all key-based actions.
         if old_state != self.board_state:
             self.query_one(WordleBoard).render_state(self.board_state)
 
@@ -114,100 +127,208 @@ class GameScreen(Screen):
             self.board_state = replace(state, mode=GameState.INPUT_WORD, active_pattern="-" * 5, focused_col=0)
         
         # Scenario 2: Reverting a fully completed guess.
-        # This works from the next turn's input mode OR from the game over screen.
         elif state.mode in (GameState.INPUT_WORD, GameState.GAME_OVER) and self.game_obj.guesses_played:
-            # Store the guess we are about to undo.
-            last_word: str = self.game_obj.guesses_played[-1]
-            last_pattern_int = self.game_obj.patterns_seen[-1]
-            pattern_list = int_to_pattern(last_pattern_int)
-            last_pattern_str = "".join([COLOR_INT_TO_CHAR.get(c, "-") for c in pattern_list])
-
-            # Pop the guess from the backend.
-            self.game_obj.pop_last_guess()
-            
-            # Get the new state from the backend.
-            status = self.game_obj.get_game_state()
-            new_guesses = self._format_guesses(status['guesses_played'], status['patterns_seen'])
-            
-            # Update the board state to allow editing the just-popped guess.
-            self.board_state = replace(state,
-                mode=GameState.INPUT_PATTERN,
-                guesses=new_guesses,
-                active_row=len(new_guesses), # The new active row is the index of the popped guess
-                active_word=last_word.upper(),
-                active_pattern=last_pattern_str,
-                focused_col=4
-            )
+            self._undo_completed_guess()
         
         if old_state != self.board_state:
             self.query_one(WordleBoard).render_state(self.board_state)
 
+    def _undo_completed_guess(self) -> None:
+        """Pops the last guess and restores the UI to its previous state."""
+        # Store the guess we are about to undo.
+        last_word: str = self.game_obj.guesses_played[-1]
+        last_pattern_int = self.game_obj.patterns_seen[-1]
+        pattern_list = int_to_pattern(last_pattern_int)
+        last_pattern_str = "".join([COLOR_INT_TO_CHAR.get(c, "-") for c in pattern_list])
+
+        # Pop the guess from the backend and the results from our history.
+        self.game_obj.pop_last_guess()
+        self.results_history.pop()
+
+        # Update sidebar tables with the now-current results.
+        previous_results = self.results_history[-1] if self.results_history else None
+        self._update_sidebar_tables(previous_results, clear_stats=True)
+        
+        # Get the new backend state.
+        status = self.game_obj.get_game_state()
+        new_guesses = self._format_guesses(status['guesses_played'], status['patterns_seen'])
+        
+        suggestion = previous_results['recommendation'] if previous_results else self.INITIAL_SUGGESTION[0]
+
+        # Update the board state to allow editing the just-popped guess.
+        self.board_state = replace(self.board_state,
+            mode=GameState.INPUT_PATTERN,
+            guesses=new_guesses,
+            active_row=len(new_guesses),
+            active_word=last_word.upper(),
+            active_pattern=last_pattern_str,
+            focused_col=4,
+            suggestion=suggestion
+        )
+
     def _submit_word(self) -> None:
-        """Validates and submits the active word."""
+        """Validates the active word and transitions to pattern input mode."""
         state = self.board_state
         try:
-            validated_word, _ = self.game_obj.validate_guess(state.active_word)
+            self.game_obj.validate_guess(state.active_word)
             self.board_state = replace(state,
                 mode=GameState.INPUT_PATTERN,
-                active_pattern="-" * 5, # Default to all gray
+                active_pattern="-" * 5,
                 focused_col=0
             )
         except InvalidWordError as e:
             self.app.notify(str(e), title="Invalid Word", severity="error")
 
     def _submit_pattern(self) -> None:
-        """Validates the active pattern and triggers the guess."""
+        """Validates the active pattern and triggers the turn processing."""
         try:
             self.game_obj.validate_pattern(self.board_state.active_pattern)
-            self._make_guess()
-
+            self._process_turn()
         except InvalidPatternError as e:
             self.app.notify(str(e), title="Invalid Pattern", severity="error")
 
-    def _make_guess(self) -> None:
-        """Updates the backend, determines the next game state, and renders it."""
-        state = self.board_state
-        self.game_obj.make_guess(state.active_word, state.active_pattern)
+    def _process_turn(self) -> None:
+        """Orchestrates the entire sequence of events after a valid guess."""
+        self.game_obj.make_guess(self.board_state.active_word, self.board_state.active_pattern)
+        self.results_history.append(None)
         
         status = self.game_obj.get_game_state()
         new_guesses = self._format_guesses(status['guesses_played'], status['patterns_seen'])
+        self.board_state = replace(self.board_state, guesses=new_guesses)
 
         if status['solved'] or status['failed']:
-            new_mode=GameState.GAME_OVER
+            self.board_state = replace(self.board_state, mode=GameState.GAME_OVER)
             if status['solved']:
                 self.app.notify("Congratulations, you solved it!", title="Solved!")
             else:
                 self.app.notify("No possible answers remain.", title="Failed", severity="error")
         else:
-            new_mode=GameState.IDLE
+            self._start_computation()
+
+    def _start_computation(self) -> None:
+        """Sets the UI to IDLE and starts the backend worker."""
+        self.board_state = replace(self.board_state, mode=GameState.IDLE)
+        self._set_ui_disable(True)
+
+        progress_bar = self.query_one(PatchedProgressBar)
+        progress_bar.progress = 0
+        self.progress_array = np.zeros(NTHREADS + 1, dtype=np.float64)
+
+        self.worker = self.run_worker(
+            lambda: self.game_obj.compute_next_guess(self.progress_array),
+            exclusive=True,
+            thread=True,
+            exit_on_error=False
+        )
+        self.progress_timer = self.set_interval(1 / 10, self._update_progress_bar)
+
+    def _update_progress_bar(self) -> None:
+        """Reads from the shared progress array and updates the UI."""
+        if self.progress_array is not None:
+            progress_bar = self.query_one(PatchedProgressBar)
+            total = self.progress_array[-1]
+            
+            if progress_bar.total != total:
+                progress_bar.total = total
+                
+            if total > 0:
+                current_count = np.sum(self.progress_array[:-1])
+                progress_bar.progress = min(current_count, total)
+
+    def on_worker_state_changed(self, event: Worker.StateChanged) -> None:
+        """Handles all worker outcomes, ensuring the UI is always cleaned up and consistent."""
         
-        self.board_state = replace(state, 
-            mode=new_mode,
-            guesses=new_guesses
-        )
+        # Only act on the terminal states of the worker.
+        if event.state not in (WorkerState.SUCCESS, WorkerState.ERROR, WorkerState.CANCELLED):
+            return
+
+        recommendation = ""
+        should_advance_turn = False
+        
+        # --- Phase 1: Process the result and determine next action ---
+        if event.state == WorkerState.SUCCESS:
+            results: dict = event.worker.result
+            self.results_history[-1] = results
+            self._update_sidebar_tables(results)
+            recommendation = results.get('recommendation') or ""
+            should_advance_turn = True
+
+        elif event.state in (WorkerState.ERROR, WorkerState.CANCELLED):
+            if event.state == WorkerState.ERROR:
+                self.notify(f"Computation failed. Undoing last move.", severity='error', title="Worker Error")
+            else: # CANCELLED
+                self.notify("Computation was cancelled. Undoing last move.", title="Worker Cancelled")
+            
+            # Automatically roll back the game state to a valid, interactive state.
+            self._undo_completed_guess()
+
+        # --- Phase 2: Finalize and clean up UI (for all terminal states) ---
+        self._finalize_computation()
+        
+        # --- Phase 3: Prepare next turn (only on success) ---
+        if should_advance_turn:
+            next_active_row = self.board_state.active_row
+            
+            # This is the key condition: Only increment the row if a guess
+            # has actually been submitted to the backend.
+            if self.game_obj.guesses_played:
+                next_active_row += 1
+
+            self.board_state = replace(self.board_state,
+                mode=GameState.INPUT_WORD,
+                active_row=next_active_row, # Use the conditionally updated row
+                active_word="",
+                active_pattern="",
+                suggestion=recommendation
+            )
+        
+        # Finally, render the outcome of the entire operation.
         self.query_one(WordleBoard).render_state(self.board_state)
 
-        if new_mode == GameState.IDLE:
-            self.set_timer(2.0, self._finish_turn_processing) ### LATER A CALL TO COMPUTE
+    def _finalize_computation(self) -> None:
+        """Stops timers and re-enables the UI after computation ends."""
+        if self.progress_timer:
+            self.progress_timer.stop()
+            self.progress_timer = None
 
-    def _finish_turn_processing(self) -> None:
-        """Transitions the game to the next state after the simulated delay."""
-        ### POST COMPUTE CALL
-        self.board_state = replace(self.board_state,
-            mode=GameState.INPUT_WORD,
-            active_row=self.board_state.active_row + 1,
-            active_word="",
-            active_pattern=""
-        )
-        self.query_one(WordleBoard).render_state(self.board_state)
+        progress_bar = self.query_one(PatchedProgressBar)
+        if progress_bar.progress < progress_bar.total:
+            progress_bar.progress = progress_bar.total
+
+        self._set_ui_disable(False)
+        self.query_one(ResultsTable).query_one(DataTable).focus()
+
+    def _update_sidebar_tables(self, results: dict | None, clear_stats: bool = False) -> None:
+        """
+        Updates the results and stats tables from a results dictionary.
+        """
+        results_table = self.query_one(ResultsTable)
+        stats_table = self.query_one(StatsTable)
+        
+        if results:
+            results_table.update_data(self.game_obj, results['sorted_results'])
+        else:
+            results_table.update_data(self.game_obj, [self.INITIAL_SUGGESTION])
+
+        if not clear_stats and results:
+            stats_table.update_data(results['event_counts'], self.game_obj)
+        else:
+            stats_table.query_one(DataTable).clear()
 
     # --- Internal Key Handlers ---
 
     def _handle_word_input(self, event: events.Key) -> None:
         """Logic for handling key presses in word input mode."""
         state = self.board_state
-        if event.key == "enter" and len(state.active_word) == 5:
-            self._submit_word()
+        if event.key == "enter":
+            if len(state.active_word) == 5:
+                self._submit_word()
+            # This is the new logic path
+            elif state.active_row == 0 and not state.active_word:
+                # Before starting the worker, we need a placeholder in the results history
+                # for the on_worker_state_changed handler to populate.
+                self.results_history.append(None)
+                self._start_computation()
         elif event.key == "backspace" and state.active_word:
             self.board_state = replace(state, active_word=state.active_word[:-1])
         elif event.key == "tab":
@@ -235,6 +356,11 @@ class GameScreen(Screen):
             )
 
     # --- Helper & UI Methods ---
+
+    def _set_ui_disable(self, disabled: bool) -> None:
+        """Disables or enables the UI elements visually."""
+        self.query_one(WordleBoard).disabled = disabled
+        self.query_one(Sidebar).disabled = disabled
 
     def _format_guesses(self, guesses: list[str], patterns: list[int]) -> list[tuple[str, str]]:
         """Translates backend guess/pattern data into a format for the BoardState."""
@@ -294,14 +420,6 @@ class GameScreen(Screen):
         board = self.query_one(WordleBoard)
         board.styles.width = new_width + h_padding
         board.styles.height = new_height + v_padding
-
-    def update_progress(self) -> None:
-        """Dummy function to advance the progress bar."""
-        progress_bar = self.query_one(ProgressBar)
-        if progress_bar.progress < 100:
-            progress_bar.advance(0.5)
-        else:
-            progress_bar.progress = 0
 
     def action_open_settings(self) -> None:
         """Called when the user presses Ctrl+S to toggle the settings screen."""
