@@ -18,6 +18,10 @@ Screen {
     align: left top;
 }
 
+DataTable:disabled {
+    opacity: 0.5;
+}
+
 DataTable {
     width: 100%;
     layout: grid;
@@ -70,6 +74,10 @@ LetterSquare.filled {
 
 LetterSquare.focused {
     border: hkey $yellow-highlight;
+}
+
+LetterSquare:disabled {
+    opacity: 0.5;
 }
 
 /* --- Progress Bar Styling --- */
