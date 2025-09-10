@@ -11,7 +11,6 @@ import itertools
 import math
 from typing import Callable
 import plotly.graph_objects as go
-import plotly.io as pio
 
 def simulate_game(pattern_matrix: np.ndarray[np.uint8],
                   guesses       : np.ndarray[str],

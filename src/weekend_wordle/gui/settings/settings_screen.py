@@ -3,7 +3,7 @@ from textual.containers import Vertical, Horizontal, Container
 from textual.screen import Screen
 from textual.widgets import Label, Footer, Input, Button, RichLog
 from textual.validation import Integer
-from datetime import datetime, date
+from datetime import date
 from weekend_wordle.backend.core import WordleGame
 
 class SettingsScreen(Screen):

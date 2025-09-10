@@ -10,7 +10,6 @@ from textual.containers import Vertical
 from textual.widgets import DataTable, Static
 
 from weekend_wordle.backend.core import WordleGame
-from weekend_wordle.backend.cache import Cache
 from weekend_wordle.config import EVENTS
 
 class ResultsTable(Static):
