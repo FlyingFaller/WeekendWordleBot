@@ -17,7 +17,12 @@ from textual import events
 from weekend_wordle.gui.game.game_screen import GameScreen
 from weekend_wordle.backend.messenger import TextualMessenger
 from weekend_wordle.gui.game.progress_widget import PatchedProgressBar
-from weekend_wordle.backend.helpers import *
+from weekend_wordle.backend.helpers import (get_words, 
+                                            get_pattern_matrix, 
+                                            scrape_words, 
+                                            filter_words_by_suffix,
+                                            filter_words_by_POS,
+                                            filter_words_by_frequency) 
 from weekend_wordle.backend.classifier import filter_words_by_probability, load_classifier, get_word_features
 from weekend_wordle.gui.setup.loading_widget import GetWordsWidget, ScrapeWordsWidget
 from weekend_wordle.gui.setup.filter_widget import FilterSuffixWidget, FilterFrequencyWidget, FilterPOSWidget, FilterProbabilityWidget

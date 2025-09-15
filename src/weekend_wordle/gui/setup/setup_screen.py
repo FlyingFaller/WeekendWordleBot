@@ -30,7 +30,17 @@ from weekend_wordle.gui.setup.filter_widget import (FilterSuffixWidget,
                                                     FilterFrequencyWidget,
                                                     FilterPOSWidget,
                                                     FilterProbabilityWidget)
-from weekend_wordle.config import *
+from weekend_wordle.config import (DATA_ROOT,
+                                   PATTERN_MATRIX_FILE,
+                                   VALID_GUESSES_FILE,
+                                   VALID_GUESSES_URL,
+                                   PAST_ANSWERS_FILE,
+                                   PAST_ANSWERS_URL,
+                                   ORIGINAL_ANSWERS_FILE,
+                                   ORIGINAL_ANSWERS_URL,
+                                   WORD_FEATURES_FILE,
+                                   CLASSIFIER_MODEL_FILE,
+                                   ENGLISH_DICTIONARY_FILE)
 
 class ClassifierSection(Container):
     """A widget for configuring the entire classifier training pipeline."""

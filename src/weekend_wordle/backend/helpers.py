@@ -18,7 +18,16 @@ from pathlib import Path
 from weekend_wordle.backend.cache import Cache
 from weekend_wordle.backend.messenger import UIMessenger, ConsoleMessenger
 
-from weekend_wordle.config import *
+from weekend_wordle.config import (GRAY, 
+                                   YELLOW, 
+                                   GREEN,
+                                   PATTERN_MATRIX_FILE,
+                                   VALID_GUESSES_FILE,
+                                   VALID_GUESSES_URL,
+                                   PAST_ANSWERS_FILE,
+                                   PAST_ANSWERS_URL,
+                                   EVENTS,
+                                   PROJECT_ROOT)
 
 ### FUNCTIONS ###
 def get_messenger(messenger: UIMessenger = None) -> UIMessenger:
