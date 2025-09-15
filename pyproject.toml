@@ -1,13 +1,19 @@
+[build-system]
+requires = ["uv_build>=0.8.17"]
+build-backend = "uv_build"
+
 [project]
 name = "wordlebot"
 version = "0.1.0"
 description = "Basic wordle bot based on entropy optimization."
 readme = "README.md"
+license-files = ["LICEN[CS]E.*", "LICEN[CS]ES/*"]
+license = "MIT"
 requires-python = ">=3.13.5"
+authors = [{name="Benjamin Saunders", email="bengsaunders@gmail.com"}]
 dependencies = [
     "beautifulsoup4>=4.13.4",
     "en-core-web-lg",
-    "lightgbm>=4.6.0",
     "matplotlib>=3.10.3",
     "nltk>=3.9.1",
     "numba>=0.61.2",
@@ -23,8 +29,24 @@ dependencies = [
     "textual-pyfiglet>=1.1.0",
     "tqdm>=4.67.1",
     "wordfreq>=3.1.1",
-    "xgboost>=3.0.2",
 ]
+
+[project.optional-dependencies]
+demos = [
+    "xgboost>=3.0.2",
+    "lightgbm>=4.6.0",
+]
+
+[project.scripts]
+weekendwordlebot = "weekend_wordle.gui.wordle_app:run_app"
+weekendwordlebot_cli = "" 
+
+[project.urls]
+"Homepage" = "https://github.com/flyingfaller/WeekendWordleBot"
+
+
+[tool.uv.build-backend]
+data = ["data"]
 
 [tool.uv.sources]
 en-core-web-lg = { url = "https://github.com/explosion/spacy-models/releases/download/en_core_web_lg-3.8.0/en_core_web_lg-3.8.0-py3-none-any.whl" }
