@@ -1,9 +1,12 @@
 from pathlib import Path
 from numba import get_num_threads
+import os
+
+USER =  os.getlogin( )
 
 # Potentially temporary root path placement
 PROJECT_ROOT = Path(__file__).parent.parent
-DATA_ROOT = 'C:/Users/PELICAN-5/Documents/WeekendWordleBot/'
+DATA_ROOT = f'C:/Users/{USER}/Documents/WeekendWordleBot/'
 
 NTHREADS = get_num_threads()
 
