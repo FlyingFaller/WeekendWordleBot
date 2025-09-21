@@ -27,7 +27,7 @@ To avoid the pitfalls of precomputation, WW uses a real-time, hybrid strategy th
 
 ### The Flaw in Purely Heuristic Scoring
 
-Many heuristic bots score candidate guesses based on metrics like information entropy—prioritizing the word that provides the most information over one or more turns. However, maximizing information round over round is not equivalent to the real objective: finding the solution word in the fewest guesses. In every Wordle game you have to, by definition, accumulate enough information to reduce the search space to a single answer. Evaluting candidate guesses by their expected gained entropy over four or more rounds is unhelpful and many of the top guesses will all score the same, maximimal amount of gained information. In otherwords, there are many words which can lead to solutions before running out of guesses. On the other hand, evaluting guesses over fewer rounds only informs how likely the candidate is to lead to a solution at the evaluation depth and, cruitaially, not how quickly the word leads to solutions. 
+Many heuristic bots score candidate guesses based on metrics like information entropy—prioritizing the word that provides the most information over one or more turns. However, maximizing information round over round is not equivalent to the real objective: finding the solution word in the fewest guesses. In every Wordle game, finding the solution is equivalent to accumulating enough information to reduce the search space to exactly one word: 13.8586 bits for an answer set of 14,855 words. Evaluting candidate guesses by their expected gained entropy over four or more rounds is unhelpful and many of the top guesses will all score the same, maximimal amount of gained information. In otherwords, there are many words which can lead to solutions before running out of guesses. On the other hand, evaluting guesses over fewer rounds only informs how likely the candidate is to lead to a solution at the evaluation depth and, cruitaially, not how quickly the word leads to solutions. 
 
 ### The Weekend Wordle Solution: Pruning vs. Scoring
 
@@ -38,3 +38,35 @@ The solution implemented in WW is to separate the tasks of **pruning** and **sco
 2.  **Scoring with a Search:** An exhaustive tree search is then performed *only* for this filtered set of promising candidates. The score for each candidate is the resulting average solution depth, the average number of guesses used, for all remaining possible answers.
 
 This hybrid model reduces the search tree by orders of magnitude, making an exhaustive search of the most relevant branches possible in seconds to hours instead of days. While the initial entropy-based filter does not guarantee that the globally optimal move is always considered, the guiding principle is that the best guess will almost certainly rank among the top candidates. By using this filter to cast a sufficiently wide net, it is possible to explore the most critical branches of the game tree and achieve near-optimal performance without the brittleness and massive upfront cost of a full precomputation.
+
+---
+
+## Implementation Details and Optimizations
+
+### Algorithm Overview
+
+The algorithm is comprised of two stages: heuristic pruning and a depth-first recursive scoring. First, the set of all possible guesses is filtered using a fast, single-step entropy calculation. This pruning stage selects a small number of high-information candidate guesses, discarding the majority of likely-bad guesses. Second, each of the candidate guesses are evaluated using a recursive depth-first search to determine which move minimizes the total number of subsequent guesses required to guarantee a win. The candidate with the lowest total score is selected and return.
+
+
+First there is a quick, greedy entropy calculation:
+```
+for each guess in the guess set:
+  get patterns for guess against all remaining answers
+  count the number of occurences of all unique patterns
+  compute the probability of landing in each 'pattern bucket', p, as 1/(pattern count)
+  compute the single-round entropy gain for each guess as -sum(p*log2(p))
+```
+Next the algorithm totals the scores and recurses where necessary:
+```
+for the highest-entropy nprune guesses:
+  for each pattern in the possible patterns for the guess:
+    if all green:
+      score += 0
+    elif number of pattern counts < 3:
+      score += 2*(pattern count) - 1
+    elif current depth < max depth:
+      score += recursive_engine() ### Recurse
+    else:
+      score += prohibitively large number
+return min(scores)
+```
