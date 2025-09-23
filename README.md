@@ -1,3 +1,14 @@
+
+<img width="830" height="417" alt="WW_logo" src="https://github.com/user-attachments/assets/301ac5da-5a92-468a-89be-84db4fdb1185" />
+
+## A Near-Optimal, Modern Wordle Bot
+
+WeekendWordle is a Python framework and TUI built to find near-optimal guesses for the modern, New York Times version of Wordle https://www.nytimes.com/games/wordle/index.html. It is designed to run on mid-end hardware and find guesses in as quick as subsecond time. WeekendWordle is built using a combination of hueristic pruning and an exhaustive depth-first tree search with pre-solve answer pruning accomplished by a Logistic Regression PU classifier. While there are many configuration options, the defaults achieve an average solve speed of 3.64 guesses [CHECK]. 
+
+## Installation
+
+## Usage
+
 ## Background and Motivation
 
 Approaches to developing a Wordle bot can be broadly categorized into two groups: those using heuristic-based, real-time computation and those that rely on a precomputed search of the entire solution space.
