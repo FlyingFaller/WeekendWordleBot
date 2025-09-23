@@ -1,7 +1,5 @@
 WeekendWordleBot is a work-in-progress bot to """optimally""" solve the NYT Wordle game I decided to make for fun one (three) weekened. It only has knowledge of the 14,855 valid guess words (kinda), not the much small solution set (which doesn't exist publically anymore). It's based in Shannon entropy/information theory and there are many explinations out there for similar bots see the excellent videos by 3b1b. 
 
----
-
 ## Background and Motivation
 
 Approaches to developing a Wordle bot can be broadly categorized into two groups: those using **heuristic-based**, real-time computation and those that rely on a **precomputed** search of the entire solution space.
@@ -18,8 +16,6 @@ This uncertainty creates several challenges for bot development:
 3.  Without a definitive answer list, a provably-optimal strategy is impossible, diminishing the value of the immense precomputation required.
 
 The Weekend Wordle (WW) project was undertaken to create a high-performance bot for the *current* version of Wordle by favoring a flexible, near-real-time approach over a rigid, precomputed one.
-
----
 
 ## A Hybrid Approach: Heuristic Pruning with Exhaustive Search
 
@@ -38,8 +34,6 @@ The solution implemented in WW is to separate the tasks of **pruning** and **sco
 2.  **Scoring with a Search:** An exhaustive tree search is then performed *only* for this filtered set of promising candidates. The score for each candidate is the resulting average solution depth, the average number of guesses used, for all remaining possible answers.
 
 This hybrid model reduces the search tree by orders of magnitude, making an exhaustive search of the most relevant branches possible in seconds to hours instead of days. While the initial entropy-based filter does not guarantee that the globally optimal move is always considered, the guiding principle is that the best guess will almost certainly rank among the top candidates. By using this filter to cast a sufficiently wide net, it is possible to explore the most critical branches of the game tree and achieve near-optimal performance without the brittleness and massive upfront cost of a full precomputation.
-
----
 
 ## Implementation Details and Optimizations
 
@@ -123,6 +117,45 @@ func recursive_engine(guess_set, answer_set, current_depth):
   return min(scores) + size(answer_set)
 ```
 
-### Optimizations
+### Implementation Optimizations
 
-In order to make the above algorithm be efficient at scale, great effort has been put into optimizing and parallelizing it. Probably the single largest performance boost comes from the way the code is run. Unlike traditional interpreted python, the `recusive_engine()` is JIT compiled directly into machine code using Numba. Further, the evaluation of candidate guesses, following the entropy calculation step, is fully parallelized using Numbas built-in parallel decorator argument. 
+#### JIT Compilation and Parallelism:
+
+* **Numba JIT**: The core `recursive_engine()` function is just-in-time (JIT) compiled directly into efficient machine code using Numba, eliminating Python's interpreter overhead.
+* **Parallel Execution**: The root-level evaluation of candidate guesses is parallelized using Numba's `parallel` decorator argument. This workload is managed by a separate `recursive_root()` function, which also provides a more detailed return value than the `recursive_engine()`.
+
+#### Pre-computation and Data Representation:
+
+* **Pattern Matrix**: Rather than calculating patterns on the fly, all possible guess-answer outcomes are pre-computed and stored in a "pattern matrix." Each pattern is represented as an 8-bit unsigned integer (e.g., all-gray is `0x00`, and all-green is `0xF2`).
+* **Integer Indexing**: The solver avoids slow string operations entirely. It works exclusively with integer indices that reference the rows (guesses) and columns (answers) of the pattern matrix. The current `answer_set` is maintained as an array of these integer indices.
+
+#### Thread-Safe Memoization Cache:
+
+A custom, high-performance cache stores the results of previously solved subproblems to avoid redundant computation. At each entry to `recursive_root()`, the cache is checked for a solution before any new calculations are performed.
+
+* **Key-Value Storage**: The cache uses the FNV-1a hash of the current `answer_set` indices as its key and the resulting integer score as its value.
+* **Collision Handling & Performance**: The cache maps a hash to an array index via modulo of the segment capacity (`index = hash % segment_capacity`). Collisions are resolved using linear probing. This approach is susceptible to 'blocking', the formation of large, contiguous data blocks that slow access, which is mitigated in two ways:
+    1.  The FNV-1a hash function was chosen for its excellent key distribution, minimizing block formation.
+    2.  The cache automatically expands when a segment reaches 80% capacity. This requires allocating new memory for new cache segments, which introduces a performance cost. However, the cache read/write time is of the order $O(n)$ where $n$ is the number of segments. As long as segments are reasonably sized, this performance loss is not noticeable in practice.
+* **Numba-Compatible Thread Safety**: The cache is designed to be fully thread-safe, allowing a single, global instance to be shared across all parallel threads. This is achieved by defining custom atomic operations for the LLVM compiler via Numba. The cache's core functionality relies on atomic add/subtract (`fadd`, `fsub`) and compare-and-swap (`cmpxchg`) machine code instructions.
+
+### Algorithm Optimizations
+
+#### Entropy Calculation:
+
+* **Shared Pattern Data**: The patterns and their corresponding counts (`pattern_counts`) are generated once per guess. This data is then stored and reused for both the entropy calculation and the subsequent candidate evaluation phase.
+* **Early Exits & Loop Skips**: The entropy calculation loop for a guess can terminate early in two specific scenarios:
+    1.  **Zero Information Guess**: If a guess results in only one unique pattern across all possible answers, it provides no information ($H=0$). The entropy calculation for this guess is immediately skipped.
+    2.  **Optimal Guess**: If a guess is a potential answer and also partitions the remaining answer set perfectly (i.e., every answer produces a unique pattern), it is guaranteed to be an optimal move (winning in 1 or 2 turns). Its score is calculated directly, and `recursive_engine()` returns immediately, skipping all remaining entropy calculations and the entire candidate scoring phase.
+* **Efficient Entropy Formulation**: The standard Shannon entropy formula, $H(X) = -\sum p_i \log_2(p_i)$, requires a division for each probability term ($p_i = n_i / N$). The implementation uses a mathematically equivalent but more efficient formulation:
+
+    $$H(X) = \log_2(N) - \frac{1}{N} \sum n_i \log_2(n_i)$$
+  
+    This allows $\log_2(N)$ to be pre-calculated for the entire set of answers, minimizing floating-point operations within the sum. In this case $N = \text{number of answers}$ and $n_i = \text{pattern count}$.
+
+#### Candidate Scoring:
+
+* **Pruning with a Minimum Score**: Instead of calculating the full score for every candidate and then finding the minimum, the solver tracks the best score found so far (initialized to infinity). If a candidate's partially computed score already exceeds this known minimum, its evaluation is immediately aborted, pruning that entire search branch. 
+* **Deferred Recursion**: Recursive calls are extremely expensive and are treated as a last resort.
+    1.  First, the solver calculates the scores for all simple, non-recursive branches for a candidate guess. Any necessary recursive calls are added to a queue. This increases the chance the partial score will exceed the current minimum, thus avoiding the expensive recursive calls entirely.
+    2.  If the candidate is still viable after all non-recursive branches are evaluated, the queued recursive calls are executed one by one, with the partial score checked against the minimum after each completion.
