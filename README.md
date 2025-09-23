@@ -4,9 +4,9 @@ Approaches to developing a Wordle bot can be broadly categorized into two groups
 
 The precomputed approach can achieve provably-optimal performance. For example, the paper *An Exact and Interpretable Solution to Wordle* by Bertsimas and Paskov leveraged exact dynamic programming to fully map the game's decision tree. However, this optimality comes at a significant computational cost. According to the paper,
 
-> "The current form of Wordle — with 6 rounds, 5 letter words, and a guess and solution space of sizes 10,657 and 2,315, respectively — took days to solve via an efficient C++ implementation of the algorithm, parallelized across a 64-core computer."
+> The current form of Wordle — with 6 rounds, 5 letter words, and a guess and solution space of sizes 10,657 and 2,315, respectively — took days to solve via an efficient C++ implementation of the algorithm, parallelized across a 64-core computer.
 
-The primary disadvantage of these solve-once methods is their **brittleness**. If the list of valid guesses or possible answers changes, the entire multi-day computation must be redone. And the game has changed since that paper's publication. The valid guess space has expanded to 14,855 words, and since the New York Times (NYT) acquired Wordle, the daily answer is chosen by an editor, not from a fixed, publicly known list.
+The primary disadvantage of these solve-once methods is their brittleness. If the list of valid guesses or possible answers changes, the entire multi-day computation must be redone. And the game has changed since that paper's publication. The valid guess space has expanded to 14,855 words, and since the New York Times (NYT) acquired Wordle, the daily answer is chosen by an editor, not from a fixed, publicly known list.
 
 This uncertainty creates several challenges for bot development:
 1.  Relying on the pre-NYT answer list creates a significant risk of being unable to solve for newer, out-of-list words.
@@ -54,7 +54,7 @@ func recursive_engine(guess_set, answer_set, current_depth):
     // Count how many occurences of each pattern type there are i.e. how many answers would produce all grays, ect
     pattern_counts = count_unique_pattern_occurences(patterns)
 
-    // Calculale the probability of seeing this pattern when playing this guess
+    // Calculate the probability of seeing this pattern when playing this guess
     pattern_probabilities = pattern_counts/size(answer_set)
 
     // Calculate the expected information gained by playing this guess
