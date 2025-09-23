@@ -1,14 +1,12 @@
-WeekendWordleBot is a work-in-progress bot to """optimally""" solve the NYT Wordle game I decided to make for fun one (three) weekened. It only has knowledge of the 14,855 valid guess words (kinda), not the much small solution set (which doesn't exist publically anymore). It's based in Shannon entropy/information theory and there are many explinations out there for similar bots see the excellent videos by 3b1b. 
-
 ## Background and Motivation
 
-Approaches to developing a Wordle bot can be broadly categorized into two groups: those using **heuristic-based**, real-time computation and those that rely on a **precomputed** search of the entire solution space.
+Approaches to developing a Wordle bot can be broadly categorized into two groups: those using heuristic-based, real-time computation and those that rely on a precomputed search of the entire solution space.
 
 The precomputed approach can achieve provably-optimal performance. For example, the paper *An Exact and Interpretable Solution to Wordle* by Bertsimas and Paskov leveraged exact dynamic programming to fully map the game's decision tree. However, this optimality comes at a significant computational cost. According to the paper,
 
 > "The current form of Wordle — with 6 rounds, 5 letter words, and a guess and solution space of sizes 10,657 and 2,315, respectively — took days to solve via an efficient C++ implementation of the algorithm, parallelized across a 64-core computer."
 
-The primary disadvantage of these solve-once methods is their **brittleness**. If the list of valid guesses or possible answers changes, the entire multi-day computation must be redone. And the game has changed since that paper's publication. The valid guess space has expanded to **14,855 words**, and since the New York Times (NYT) acquired Wordle, the daily answer is chosen by an editor, not from a fixed, publicly known list.
+The primary disadvantage of these solve-once methods is their **brittleness**. If the list of valid guesses or possible answers changes, the entire multi-day computation must be redone. And the game has changed since that paper's publication. The valid guess space has expanded to 14,855 words, and since the New York Times (NYT) acquired Wordle, the daily answer is chosen by an editor, not from a fixed, publicly known list.
 
 This uncertainty creates several challenges for bot development:
 1.  Relying on the pre-NYT answer list creates a significant risk of being unable to solve for newer, out-of-list words.
@@ -159,3 +157,43 @@ A custom, high-performance cache stores the results of previously solved subprob
 * **Deferred Recursion**: Recursive calls are extremely expensive and are treated as a last resort.
     1.  First, the solver calculates the scores for all simple, non-recursive branches for a candidate guess. Any necessary recursive calls are added to a queue. This increases the chance the partial score will exceed the current minimum, thus avoiding the expensive recursive calls entirely.
     2.  If the candidate is still viable after all non-recursive branches are evaluated, the queued recursive calls are executed one by one, with the partial score checked against the minimum after each completion.
+
+## Intelligent Answer Set Construction
+
+The solver's efficiency is highly dependent on the size and quality of the initial answer set. While Wordle accepts a large vocabulary of guesses (14,855 words), the pool of possible answers is much smaller (2,315 words historically). A smaller, more probable starting answer set directly leads to faster solutions. Several strategies are available in WW to prune the full vocabulary into a minimal, high-quality answer set.
+
+### Filtering Strategies
+
+These methods offer simple, fast ways to reduce the word list based on historical patterns. All filtering methods can be used on their own or in conjunction to varrying degrees of success.
+
+* **Frequency Filtering**: Historically, Wordle answers are common words. This filter removes rare words by checking their usage frequency in a large text corpus, using the `wordfreq` library. Words that fall below a certain frequency threshold are discarded.
+* **Part-of-Speech (POS) Filtering**: Simple plurals (ending in 's') and past-tense verbs have historically been avoided as answers. This filter uses the natural language toolkit, `nltk`, to identify POS tags and remove certain tagged words (e.g. plurals `NNS` or past-tense verbs `VBD`).
+* **Suffix Filtering**: An alternative to POS tagging, suffix filtering provides a simpler mechanism to filter words based on their endings (e.g., removing words that end in 's', unless preceeded by another 's').
+
+### Spy-EM Classifier for Answer Prediction
+
+While simple filters are effective, they are imprecise, either leaving too many unlikely words or removing valid exceptions. The most powerful method provided is a machine learning classifier trained to predict the probability that any given word is a plausible Wordle answer, effectively learning the preferences of the Wordle authors and editors. 
+
+Training a standard classifier is challenging due to the lack of confirmed "negative" examples (words that will *never* be an answer). There are only positive examples (the past answers and pre-NYT answer list) and a large set of unlabeled words. This is known as a Positive-Unlabeled (PU) learning problem.
+
+#### Word Features:
+
+To solve this, a Logistic Regression model is trained on a wealth of word features including:
+* **Word Vectors**: High-dimensional semantic embeddings from `spaCy`'s `en_core_web_lg` model.
+* **Word Frequency**: The log-transformed frequency of the word from the `wordfreq` library.
+* **POS Tags**: A suite of boolean features based on `spaCy` tags, such as `is_regular_plural`, `is_past_tense`, `is_adjective`, and `is_proper_noun`.
+* **Orthographic Features**: Simple word characteristics like `vowel_count` and whether the word `has_double_letter`.
+
+#### Training Process (Spy-EM):
+
+The model is trained using the Spy Expectation-Maximization (Spy-EM) algorithm, an iterative process designed for PU learning which follows these steps:
+1.  **Setup**: A small fraction of the positive examples (the "spies") are removed from the training set and mixed into the unlabeled data.
+2.  **Initialization**: In the first iteration, known positive examples are given a sample weight of 1.0, and all unlabeled words are given a weight of 0.5.
+3.  **M-Step**: A Logistic Regression model is trained on the positive and unlabeled data using the sample weights.
+4.  **E-Step**: The model predicts the probability of being an answer for both the unlabeled set and the hidden "spies." The mean probability of the spies ($c$) is calculated.
+5.  **Weight Update**: The weights for the unlabeled words are updated using the formula: $\text{new weights} = \text{probability} / c$. The spy probability $c$ acts as a calibration factor, estimating how a true positive appears to the model when it's not labeled.
+6.  **Convergence**: The process repeats until the total change in weights between iterations (the L1 Norm) drops below a predefined `convergence_tolerance`.
+
+#### Performance:
+
+The resulting classifier is highly effective, achieving as high as a 99.4% recall on known answers (a 0.6% false negative rate). It produces a much more minimal and accurate answer set than the simpler filtering methods can achieve at a similar level of recall.
