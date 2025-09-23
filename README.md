@@ -124,3 +124,5 @@ func recursive_engine(guess_set, answer_set, current_depth):
 ```
 
 ### Optimizations
+
+In order to make the above algorithm be efficient at scale, great effort has been put into optimizing and parallelizing it. Probably the single largest performance boost comes from the way the code is run. Unlike traditional interpreted python, the `recusive_engine()` is JIT compiled directly into machine code using Numba. Further, the evaluation of candidate guesses, following the entropy calculation step, is fully parallelized using Numbas built-in parallel decorator argument. 
