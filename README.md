@@ -100,7 +100,7 @@ uv add --git https://github.com/flyingfaller/WeekendWordleBot.git
 
 ### Required SpaCy Model
 
-This project uses a large SpaCy model for some of its features. If you plan to use the PU classifier (which is on by default), you must have the model downloaded/
+This project uses a large SpaCy model for some of its features. If you plan to use the PU classifier (which is on by default), you must have the model downloaded.
 
 ```bash
 #Using uv:
