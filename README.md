@@ -6,125 +6,110 @@
 
 WeekendWordle is a Python framework and TUI built to find near-optimal guesses for the modern, New York Times version of Wordle https://www.nytimes.com/games/wordle/index.html. It is designed to run on mid-end hardware and find guesses in as quick as subsecond time. WeekendWordle is built using a combination of hueristic pruning and an exhaustive depth-first tree search with pre-solve answer pruning accomplished by a Logistic Regression PU classifier. While there are many configuration options, the defaults achieve an average solve speed of 3.64 guesses [CHECK]. 
 
-## Run Without a Permanent Installation
+Jump To:
+- [Quickly Run WeekendWordle](#usage)
+- [Installation](#installation)
+- [Background](#background-and-motivation)
+- [Implementation Strategy](#a-hybrid-approach-heuristic-pruning-with-exhaustive-search)
+- [Technical Details](#implementation-details-and-optimizations)
 
-You can try the WeekendWordle without installing it using `pipx` or `uvx`. Note: using `pipx` requires installing SpaCy seperately, see [Installing SpaCy](#required-spacy-model).
+## Usage
 
-**Using `uvx` (recommended):**
+The quickest way to run the app is with `uvx`. The command-line interface (CLI) is also available.
+
+**To run the terminal (graphical) interface:**
 ```bash
 uvx --from weekendwordle weekendwordlebot
 ```
-or for the CLI:
+
+**To run the command-line interface:**
 ```bash
 uvx --from weekendwordle weekendwordlebot_cli
 ```
 
-**Using `pipx`:**
+You can also run the same commands using `pipx`, but you will have to install the SpaCy Model in advance. See [SpaCy Installation](#required-spacy-model).
 ```bash
-pipx run --spec weekendwordle weekendwordlebot
+pipx --spec weekenedwordle weekendwordlebot
 ```
-or for the CLI:
+
+<details>
+<summary>Running with a permanent installation...</summary><br />
+
+If you have installed the package permanently, the commands are available directly in your terminal. See the [Install](Install) section.
 ```bash
-pipx run --spec weekendwordle weekendwordlebot_cli
+#Run the graphical interface:
+weekendwordlebot
+
+#Run the command-line interface:
+weekendwordlebot_cli
 ```
+
+</details>
+
+<details>
+<summary>Example code...</summary><br />
+
+When WeekendWordle is installed the underlying backend API can be used directly:
+```py
+# This is some example code:
+game_obj = WordleGame(pattern_matrix, guesses, answers, nprune_global, nprune_answers, sort_func = sort_func)
+```
+
+</details>
 
 ## Installation
 
-### Standard Installation from PyPI
-
-To install WeekendWordle as a dependency run any of the following:
-
-**Using `uv add` (recommended):**
+To install, you will need `uv` or `pip`. `uv` is recommended.
 
 ```bash
+# The recommended way to install
 uv add weekendwordle
 ```
 
-**Using `uv pip install`:**
+<details>
+<summary>Other ways to install...</summary><br />
 
-```bash
-uv pip install weekendwordle
-```
-
-*(Note: This will not update project lock or pyproject.toml files)*
-
-**Using `pip`:**
-
+**Using pip:**
 ```bash
 pip install weekendwordle
 ```
 
-### Installation from GitHub
-
-To add the latest development version from GitHub as a dependency:
-
-**Using `uv` (recommended):**
-
+**From GitHub (Development Version):**
 ```bash
 uv add --git https://github.com/flyingfaller/WeekendWordleBot.git
 ```
 
-**Using `pip`:**
+**For Contributing (Editable Install):**
+1.  Clone the repository:
+  ```bash
+  git clone https://github.com/flyingfaller/WeekendWordleBot.git
+  cd WeekendWordleBot
+  ```
+2.  Install in editable mode:
+  ```bash
+  #using uv pip:
+  uv pip install -e .
 
-```bash
-pip install git+https://github.com/flyingfaller/WeekendWordleBot.git
-```
+  #or using pip directly:
+  pip install -e .
+  ```
 
-### Installing For Development
+</details>
 
-If you want to contribute to the project, you can install it in an editable mode. First, clone the repository:
-
-```bash
-git clone https://github.com/flyingfaller/WeekendWordleBot.git
-cd WeekendWordleBot
-```
-
-Then, install the package in editable mode:
-
-**Using `uv` (recommended):**
-```bash
-uv pip install -e .
-```
-
-**Using `pip`:**
-```bash
-pip install -e .
-```
+**After installation, you *might* need to download a required machine learning model. See the [SpaCy Installation](#required-spacy-model) section below for details.**
 
 ### Required SpaCy Model
 
-**Important:** If you install WeekendWordle using `pip` or `uv pip` and plan on using the PU classifier (on by default) then you may need to install the SpaCy model seperately:
+This project uses a large SpaCy model for some of its features. If you plan to use the PU classifier (which is on by default), you must have the model downloaded/
 
-**Using `uv`:**
 ```bash
+#Using uv:
 uv add https://github.com/explosion/spacy-models/releases/download/en_core_web_lg-3.8.0/en_core_web_lg-3.8.0-py3-none-any.whl"
-```
-
-**Using `pip`:**
-```bash
+#Using pip:
 pip install https://github.com/explosion/spacy-models/releases/download/en_core_web_lg-3.8.0/en_core_web_lg-3.8.0-py3-none-any.whl"
 ```
 
-## Usage
-
-After installing the WeekendWordle you can access the TUI, CLI, and underlying functionality.
-
-**To run the terminal user interface (TUI) use:**
-
-```bash
-weekendwordlebot
-```
-
-**To run the command-line interface (CLI) use:**
-
-```bash
-weekendwordlebot_cli
-```
-
-**Example usage:**
-```py
-# This is some example code using WeekendWordle tbd
-```
+*(Note: If you installed with `uv add`, this model may be downloaded automatically. For all other installation methods, you will likely need to install manually.)*
 
 ## Background and Motivation
 
