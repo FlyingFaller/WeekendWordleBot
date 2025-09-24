@@ -42,7 +42,7 @@ def recursive_engine(pattern_matrix: np.ndarray,
             continue
 
         # best possible word: chance of this guess being the answer or worst case will eliminate all others after play
-        if all_pcounts[-1] > 1 and len(patterns) >= nanswers:
+        if all_pcounts[-1] > 0 and len(patterns) >= nanswers:
             event_counter.inc_entropy_exits()
             score = 1 + (nanswers-1)/nanswers # this guess plus chance another guess will be needed
             cache.set(key, score)

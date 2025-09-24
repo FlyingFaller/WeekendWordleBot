@@ -3,9 +3,9 @@ requires = ["uv_build>=0.8.17"]
 build-backend = "uv_build"
 
 [project]
-name = "wordlebot"
+name = "weekendwordle"
 version = "0.1.0"
-description = "Basic wordle bot based on entropy optimization."
+description = "WeekendWordle is a Python framework and TUI built to find near-optimal guesses for the modern, New York Times version of Wordle."
 readme = "README.md"
 license-files = ["LICEN[CS]E.*", "LICEN[CS]ES/*"]
 license = "MIT"
