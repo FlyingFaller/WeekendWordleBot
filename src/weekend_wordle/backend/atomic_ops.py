@@ -2,7 +2,8 @@
 # Inspired by https://github.com/arthurp who (presumably) implemented atomic_add, atomic_sub, atomic_min, and atomic_max                       #
 # Sourced from https://github.com/KatanaGraph/katana/blob/4f418f0aeab539c05fd296f3b28c5b7616dc747f/python/katana/numba_support/numpy_atomic.py #
 # BSD Licensed                                                                                                                                 #
-# Copyright 2018 The University of Texas at Austin                                                                                             #    
+# Copyright 2018 The University of Texas at Austin                                                                                             #
+# See full license at LICENSES/ATOMIC_LICENSE                                                                                                  #    
 ################################################################################################################################################
 
 from numba import types
