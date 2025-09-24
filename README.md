@@ -4,7 +4,7 @@
 
 ## A Near-Optimal, Modern Wordle Bot
 
-WeekendWordle is a Python framework and TUI built to find near-optimal guesses for the modern, New York Times version of Wordle https://www.nytimes.com/games/wordle/index.html. It is designed to run on mid-end hardware and find guesses in as quick as subsecond time. WeekendWordle is built using a combination of hueristic pruning and an exhaustive depth-first tree search with pre-solve answer pruning accomplished by a Logistic Regression PU classifier. While there are many configuration options, the defaults achieve an average solve speed of 3.64 guesses [CHECK]. 
+WeekendWordle is a Python framework and TUI built to find near-optimal guesses for the modern, New York Times version of Wordle https://www.nytimes.com/games/wordle/index.html. It is designed to run on mid-end hardware and find guesses in as quick as subsecond time. WeekendWordle is built using a combination of heuristic pruning and an exhaustive depth-first tree search with pre-solve answer pruning accomplished by a Logistic Regression PU classifier. While there are many configuration options, the defaults achieve an average solve speed of 3.6061 guesses for a 4,161 word answer set. 
 
 Jump To:
 - [Quickly Run WeekendWordle](#usage)
@@ -134,7 +134,7 @@ To avoid the pitfalls of precomputation, WW uses a real-time, hybrid strategy th
 
 ### The Flaw in Purely Heuristic Scoring
 
-Many heuristic bots score candidate guesses based on metrics like information entropy—prioritizing the word that provides the most information over one or more turns. However, maximizing information round over round is not equivalent to the real objective: finding the solution word in the fewest guesses. In every Wordle game, finding the solution is equivalent to accumulating enough information to reduce the search space to exactly one word: 13.8586 bits for an answer set of 14,855 words. Evaluting candidate guesses by their expected gained entropy over four or more rounds is unhelpful and many of the top guesses will all score the same, maximimal amount of gained information. In otherwords, there are many words which can lead to solutions before running out of guesses. On the other hand, evaluting guesses over fewer rounds only informs how likely the candidate is to lead to a solution at the evaluation depth and, cruitaially, not how quickly the word leads to solutions. 
+Many heuristic bots score candidate guesses based on metrics like information entropy—prioritizing the word that provides the most information over one or more turns. However, maximizing information round over round is not equivalent to the real objective: finding the solution word in the fewest guesses. In every Wordle game, finding the solution is equivalent to accumulating enough information to reduce the search space to exactly one word: 13.8586 bits for an answer set of 14,855 words. Evaluting candidate guesses by their expected gained entropy over four or more rounds is unhelpful and many of the top guesses will all score the same, maximal amount of gained information. In other words, there are many words which can lead to solutions before running out of guesses. On the other hand, evaluating guesses over fewer rounds informs only how likely the candidate is to lead to a solution at the evaluation depth and, crucially, not how quickly the word leads to solutions. 
 
 ### The Weekend Wordle Solution: Pruning vs. Scoring
 
