@@ -37,10 +37,10 @@ pipx --spec weekenedwordle weekendwordlebot
 
 If you have installed the package permanently, the commands are available directly in your terminal. See the [Install](Install) section.
 ```bash
-#Run the graphical interface:
+# Run the graphical interface:
 weekendwordlebot
 
-#Run the command-line interface:
+# Run the command-line interface:
 weekendwordlebot_cli
 ```
 
@@ -87,10 +87,10 @@ uv add --git https://github.com/flyingfaller/WeekendWordleBot.git
   ```
 2.  Install in editable mode:
   ```bash
-  #using uv pip:
+  # using uv pip:
   uv pip install -e .
 
-  #or using pip directly:
+  # or using pip directly:
   pip install -e .
   ```
 
@@ -103,10 +103,10 @@ uv add --git https://github.com/flyingfaller/WeekendWordleBot.git
 This project uses a large SpaCy model for some of its features. If you plan to use the PU classifier (which is on by default), you must have the model downloaded.
 
 ```bash
-#Using uv:
-uv add https://github.com/explosion/spacy-models/releases/download/en_core_web_lg-3.8.0/en_core_web_lg-3.8.0-py3-none-any.whl"
-#Using pip:
-pip install https://github.com/explosion/spacy-models/releases/download/en_core_web_lg-3.8.0/en_core_web_lg-3.8.0-py3-none-any.whl"
+# Using uv:
+uv add https://github.com/explosion/spacy-models/releases/download/en_core_web_lg-3.8.0/en_core_web_lg-3.8.0-py3-none-any.whl
+# Using pip:
+pip install https://github.com/explosion/spacy-models/releases/download/en_core_web_lg-3.8.0/en_core_web_lg-3.8.0-py3-none-any.whl
 ```
 
 *(Note: If you installed with `uv add`, this model may be downloaded automatically. For all other installation methods, you will likely need to install manually.)*
