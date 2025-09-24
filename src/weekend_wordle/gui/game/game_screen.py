@@ -213,6 +213,7 @@ class GameScreen(Screen):
 
         progress_bar = self.query_one(PatchedProgressBar)
         progress_bar.progress = 0
+        progress_bar.total = 0
         self.progress_array = np.zeros(NTHREADS + 1, dtype=np.float64)
 
         self.worker = self.run_worker(
