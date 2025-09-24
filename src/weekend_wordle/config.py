@@ -87,4 +87,4 @@ APP_COLORS = {
     'widget-input-bright'   : '#4F4F4F'
 }
 
-INITIAL_SUGGESTION = ("TARSE", 15_152)
+INITIAL_SUGGESTION = ("TARSE", 15_005)
