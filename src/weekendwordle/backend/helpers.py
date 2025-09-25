@@ -354,7 +354,7 @@ def robust_mixing_hash(arr: np.ndarray) -> np.int64:
     return np.int64(h)
 
 
-def blake2b(arr: np.ndarray) -> str:
+def blake2b_hash(arr: np.ndarray) -> str:
   """
   Calculates a secure 128-bit (16-byte) BLAKE2b hash for a NumPy array.
   """

@@ -1,10 +1,10 @@
-from weekend_wordle.backend.helpers import *
-from weekend_wordle.backend.tests import *
-from weekend_wordle.backend.core import *
-from weekend_wordle.backend.engine import *
-from weekend_wordle.backend.game_runtime import *
-from weekend_wordle.backend.classifier import *
-from weekend_wordle.config import *
+from weekendwordle.backend.helpers import *
+from weekendwordle.backend.tests import *
+from weekendwordle.backend.core import *
+from weekendwordle.backend.engine import *
+from weekendwordle.backend.game_runtime import *
+from weekendwordle.backend.classifier import *
+from weekendwordle.config import *
 
 def run() -> None:
     # Mandatory loads

@@ -3,7 +3,7 @@ from numba import njit, prange
 from numba.experimental import jitclass
 from numba.types import int64, float64, ListType, uint64
 from numba.typed import List as ListObj
-from atomic_ops import atomic_cas, atomic_add, atomic_sub
+from src.weekendwordle.backend.atomic_ops import atomic_cas, atomic_add, atomic_sub
 import typing
 import time
 
