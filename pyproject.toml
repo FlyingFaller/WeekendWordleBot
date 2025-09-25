@@ -38,8 +38,8 @@ demos = [
 ]
 
 [project.scripts]
-weekendwordlebot = "weekend_wordle.gui.wordle_app:run_app"
-weekendwordlebot_cli = "weekend_wordle.gui.wordle_app:run_app"
+weekendwordlebot = "weekendwordle.gui.wordle_app:run_app"
+weekendwordlebot_cli = "weekendwordle.gui.wordle_app:run_app"
 
 [project.urls]
 "Homepage" = "https://github.com/flyingfaller/WeekendWordleBot"
