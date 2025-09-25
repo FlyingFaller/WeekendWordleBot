@@ -9,7 +9,7 @@ import pickle
 from typing import Callable
 
 from weekend_wordle.backend.messenger import UIMessenger, ConsoleMessenger
-from weekend_wordle.backend.helpers import get_messenger
+from weekend_wordle.backend.helpers import get_messenger, get_abs_path
 
 from weekend_wordle.config import CLASSIFIER_CONFIG
 
@@ -73,6 +73,7 @@ def get_word_features(
     messenger: UIMessenger = None
     ) -> pd.DataFrame:
     """Loads pre-computed word features from a file or recomputes them if needed."""
+    savefile = get_abs_path(savefile)
     messenger = get_messenger(messenger)
     with messenger.task(f"Acquiring word features"):
         if not recompute and os.path.exists(savefile):
@@ -258,6 +259,7 @@ def load_classifier(
     messenger: UIMessenger = None
     ) -> Callable:
     """Loads a pre-trained classifier or retrains one if needed."""
+    savefile = get_abs_path(savefile)
     messenger = get_messenger(messenger)
     
     with messenger.task("Acquiring classifier"):

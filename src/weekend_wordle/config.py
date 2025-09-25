@@ -4,47 +4,42 @@ import os
 
 USER =  os.getlogin( )
 
-# Potentially temporary root path placement
-PROJECT_ROOT = Path(__file__).parent.parent
-DATA_ROOT = f'C:/Users/{USER}/Documents/WeekendWordleBot/'
+PROJECT_ROOT = Path(__file__).parent
 
 NTHREADS = get_num_threads()
 
-STARTING_GUESS = "TALES"
-STARTING_GUESS_STATS = ('-', '-')
-
-GREEN = 2
+GREEN  = 2
 YELLOW = 1
-GRAY = 0
+GRAY   = 0
 
-VALID_GUESSES_URL = "https://gist.github.com/dracos/dd0668f281e685bad51479e5acaadb93/raw/6bfa15d263d6d5b63840a8e5b64e04b382fdb079/valid-wordle-words.txt"
-VALID_GUESSES_FILE = "data/valid_guesses.txt"
-ORIGINAL_ANSWERS_URL = "https://gist.github.com/cfreshman/a03ef2cba789d8cf00c08f767e0fad7b/raw/c46f451920d5cf6326d550fb2d6abb1642717852/wordle-answers-alphabetical.txt"
-ORIGINAL_ANSWERS_FILE = "data/original_answers.txt"
-PAST_ANSWERS_FILE = 'data/past_answers.txt'
-PAST_ANSWERS_URL = 'https://www.rockpapershotgun.com/wordle-past-answers'
+VALID_GUESSES_URL       = "https://gist.github.com/dracos/dd0668f281e685bad51479e5acaadb93/raw/6bfa15d263d6d5b63840a8e5b64e04b382fdb079/valid-wordle-words.txt"
+VALID_GUESSES_FILE      = "data/valid_guesses.txt"
+ORIGINAL_ANSWERS_URL    = "https://gist.github.com/cfreshman/a03ef2cba789d8cf00c08f767e0fad7b/raw/c46f451920d5cf6326d550fb2d6abb1642717852/wordle-answers-alphabetical.txt"
+ORIGINAL_ANSWERS_FILE   = "data/original_answers.txt"
+PAST_ANSWERS_FILE       = "data/past_answers.txt"
+PAST_ANSWERS_URL        = "https://www.rockpapershotgun.com/wordle-past-answers"
 ENGLISH_DICTIONARY_FILE = "data/en_US-large.txt"
-PATTERN_MATRIX_FILE = "data/pattern_matrix.npy"
-WORD_FEATURES_FILE = "data/word_features.pkl"
-CLASSIFIER_MODEL_FILE = "data/wordle_classifier.pkl"
+PATTERN_MATRIX_FILE     = "data/pattern_matrix.npy"
+WORD_FEATURES_FILE      = "data/word_features.pkl"
+CLASSIFIER_MODEL_FILE   = "data/trained_classifier.pkl"
 
 CLASSIFIER_CONFIG = {
-    'use_vectors': True,
-    'spy_rate': 0.15,
-    'max_iterations': 1000,
+    'use_vectors'          : True,
+    'spy_rate'             : 0.15,
+    'max_iterations'       : 1000,
     'convergence_tolerance': 1e-2,
-    'random_seed': None,
-    'evaluation_threshold': 0.07,
-    'explicit_features': {
-        'frequency': 1.0, 
-        'is_regular_plural': 1.0, 
+    'random_seed'          : None,
+    'evaluation_threshold' : 0.07,
+    'explicit_features'    : {
+        'frequency'          : 1.0,
+        'is_regular_plural'  : 1.0,
         'is_irregular_plural': 1.0,
-        'is_past_tense': 1.0, 
-        'is_adjective': 1.0,
-        'is_proper_noun': 1.0, 
-        'is_gerund': 1.0, 
-        'vowel_count': 1.0, 
-        'has_double_letter': 1.0
+        'is_past_tense'      : 1.0,
+        'is_adjective'       : 1.0,
+        'is_proper_noun'     : 1.0,
+        'is_gerund'          : 1.0,
+        'vowel_count'        : 1.0,
+        'has_double_letter'  : 1.0
     }
 }
 
@@ -64,9 +59,9 @@ EVENTS = [
     ('leaf_calcs_complete', 'Leaf node calculations completed in full'),
 ]
 
-NPRUNE_GLOBAL_DEFAULT = 15
+NPRUNE_GLOBAL_DEFAULT  = 15
 NPRUNE_ANSWERS_DEFAULT = 15
-MAX_DEPTH_DEFAULT = 10
+MAX_DEPTH_DEFAULT      = 10
 
 APP_COLORS = {
     'gradient-start'        : '#4795de',

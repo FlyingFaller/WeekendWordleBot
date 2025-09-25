@@ -120,6 +120,7 @@ def get_pattern_matrix(guesses:np.ndarray[str],
                        save: bool = True,
                        messenger: UIMessenger = None) -> np.ndarray:
     """Retrieves the pattern matrix from file if it exists, otherwise generates and saves it."""
+    savefile = get_abs_path(savefile)
     messenger = get_messenger(messenger)
 
     with messenger.task("Acquiring pattern matrix"):
@@ -154,10 +155,10 @@ def get_words(savefile               = VALID_GUESSES_FILE,
     Retrieves the word list, filtering for lowercase a-z words.
     It fetches from a local file if it exists, otherwise from a URL.
     """
+    savefile = get_abs_path(savefile)
     messenger = get_messenger(messenger)
     
     with messenger.task(f"Acquiring word list"):
-
         # --- Path 1: Fetch from the web if refetch is forced or file doesn't exist ---
         if not refetch and os.path.exists(savefile):
             messenger.task_log("Found local file. Loading words...", level="INFO")
@@ -203,6 +204,7 @@ def scrape_words(savefile: str | None = PAST_ANSWERS_FILE,
     """
     Scrapes a list of 5-letter words from a given URL, or loads them from a local file.
     """
+    savefile = get_abs_path(savefile)
     messenger = get_messenger(messenger)
     
     with messenger.task("Aquiring scraped words"):

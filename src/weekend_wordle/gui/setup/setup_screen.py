@@ -30,8 +30,7 @@ from weekend_wordle.gui.setup.filter_widget import (FilterSuffixWidget,
                                                     FilterFrequencyWidget,
                                                     FilterPOSWidget,
                                                     FilterProbabilityWidget)
-from weekend_wordle.config import (DATA_ROOT,
-                                   PATTERN_MATRIX_FILE,
+from weekend_wordle.config import (PATTERN_MATRIX_FILE,
                                    VALID_GUESSES_FILE,
                                    VALID_GUESSES_URL,
                                    PAST_ANSWERS_FILE,
@@ -213,19 +212,19 @@ class SetupScreen(Screen):
 
             yield GetWordsWidget(
                 title="Guesses",
-                savefile_path=DATA_ROOT+VALID_GUESSES_FILE,
+                savefile_path=VALID_GUESSES_FILE,
                 url=VALID_GUESSES_URL,
                 id="get_guesses"
             )
             yield GetWordsWidget(
                 title="Answers",
-                savefile_path=DATA_ROOT+VALID_GUESSES_FILE,
+                savefile_path=VALID_GUESSES_FILE,
                 url=VALID_GUESSES_URL,
                 id="get_answers"
             )
             yield GetPatternMatrixWidget(
                 title="Pattern Matrix",
-                savefile_path=DATA_ROOT+PATTERN_MATRIX_FILE,
+                savefile_path=PATTERN_MATRIX_FILE,
                 id='get_pattern_matrix'
             )
 
@@ -235,14 +234,14 @@ class SetupScreen(Screen):
                     'Scrape Words': lambda: ScrapeWordsWidget()
                 },
                 'default_widgets': 
-                    [('Original Answers', GetWordsWidget(savefile_path=DATA_ROOT+ORIGINAL_ANSWERS_FILE, url=ORIGINAL_ANSWERS_URL, )),
-                    ('Past Answers', ScrapeWordsWidget(savefile_path=DATA_ROOT+PAST_ANSWERS_FILE, url=PAST_ANSWERS_URL, refetch=True))]
+                    [('Original Answers', GetWordsWidget(savefile_path=ORIGINAL_ANSWERS_FILE, url=ORIGINAL_ANSWERS_URL, )),
+                    ('Past Answers', ScrapeWordsWidget(savefile_path=PAST_ANSWERS_FILE, url=PAST_ANSWERS_URL, refetch=True))]
             }
             word_features_defaults = {
-                'savefile_path': DATA_ROOT + WORD_FEATURES_FILE
+                'savefile_path': WORD_FEATURES_FILE
             }
             load_model_defaults = {
-                'savefile_path': DATA_ROOT + CLASSIFIER_MODEL_FILE
+                'savefile_path': CLASSIFIER_MODEL_FILE
             }
             yield ClassifierSection(collapse_on_disable=False, 
                                     positive_words_defaults=positive_words_defaults,
@@ -255,7 +254,7 @@ class SetupScreen(Screen):
                 yield Rule()
 
             filter_constructors = {'Suffix Filter': lambda: FilterSuffixWidget(suffixes=[('s', 's'), ('d', 'r', 'w', 'n'), 'es', 'ed'],
-                                                                               savefile_path=DATA_ROOT+ENGLISH_DICTIONARY_FILE),
+                                                                               savefile_path=ENGLISH_DICTIONARY_FILE),
                                    'Frequency Filter': lambda: FilterFrequencyWidget(),
                                    'POS Filter': lambda: FilterPOSWidget(),
                                    'Classifier Probability Filter': lambda: FilterProbabilityWidget()}
