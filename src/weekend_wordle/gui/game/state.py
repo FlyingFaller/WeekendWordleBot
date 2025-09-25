@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
 from enum import Enum, auto
-from weekend_wordle.config import GRAY, YELLOW, GREEN
+from ...config import GRAY, YELLOW, GREEN
 
 # --- Enums ---
 class GameState(Enum):

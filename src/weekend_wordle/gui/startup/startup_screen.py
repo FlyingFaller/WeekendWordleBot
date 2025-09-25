@@ -6,7 +6,7 @@ from textual import events
 from textual_pyfiglet import FigletWidget
 
 # Import your new loading screen
-from weekend_wordle.gui.startup.transitional_loading_screen import TransitionalLoading
+from .transitional_loading_screen import TransitionalLoading
 
 
 class StartupScreen(Screen):

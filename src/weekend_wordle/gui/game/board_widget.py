@@ -7,7 +7,7 @@ from textual.reactive import reactive
 from textual.message import Message
 from textual.app import ComposeResult
 
-from weekend_wordle.config import APP_COLORS
+from ...config import APP_COLORS
 # Import state definitions from the new central file
 from .state import BoardState, GameState, LetterState, CHAR_TO_COLOR_INT
 

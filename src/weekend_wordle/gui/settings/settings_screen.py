@@ -4,7 +4,7 @@ from textual.screen import Screen
 from textual.widgets import Label, Footer, Input, Button, RichLog
 from textual.validation import Integer
 from datetime import date
-from weekend_wordle.backend.core import WordleGame
+from ...backend.core import WordleGame
 
 class SettingsScreen(Screen):
     """A screen for configuring application settings."""

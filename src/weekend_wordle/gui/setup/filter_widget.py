@@ -2,8 +2,8 @@ from textual.app import ComposeResult
 from textual.containers import Container, Horizontal, Vertical
 from textual.widgets import Button, Input, Static, Switch
 
-from weekend_wordle.gui.setup.dynamic_list_widget import SimpleDynamicListWidget, NoFocusButton
-from weekend_wordle.gui.setup.loading_widget import GetWordsWidget, LoadingWidget
+from ..setup.dynamic_list_widget import SimpleDynamicListWidget, NoFocusButton
+from ..setup.loading_widget import GetWordsWidget, LoadingWidget
 
 
 class _SuffixRuleWidget(Vertical):

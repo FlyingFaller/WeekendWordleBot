@@ -7,7 +7,7 @@ from textual.widgets import (Static,
                              Collapsible, 
                              Checkbox)
 
-from weekend_wordle.config import CLASSIFIER_CONFIG
+from ...config import CLASSIFIER_CONFIG
 
 class LoadingWidget(Container):
     """A generic, extensible widget for configuring data loading."""

@@ -26,7 +26,7 @@ class TransitionalLoading(Screen):
         Helper method to contain the synchronous, blocking import.
         This will be run in a separate thread.
         """
-        from weekend_wordle.gui.setup.setup_screen import SetupScreen
+        from ..setup.setup_screen import SetupScreen
         return SetupScreen
 
     async def load_setup_screen(self) -> None:

@@ -18,28 +18,28 @@ from textual.widgets import (Header,
                              RadioSet,
                              RadioButton)
 
-from weekend_wordle.gui.loading.loading_screen import LoadingScreen
-from weekend_wordle.gui.setup.dynamic_list_widget import DynamicCollapsibleList
-from weekend_wordle.gui.setup.loading_widget import (GetWordsWidget, 
-                                                     ScrapeWordsWidget, 
-                                                     GetWordFeaturesWidget, 
-                                                     LoadModelWidget,
-                                                     GetPatternMatrixWidget)
+from .dynamic_list_widget import DynamicCollapsibleList
+from .loading_widget import (GetWordsWidget, 
+                             ScrapeWordsWidget, 
+                             GetWordFeaturesWidget, 
+                             LoadModelWidget,
+                             GetPatternMatrixWidget)
 
-from weekend_wordle.gui.setup.filter_widget import (FilterSuffixWidget,
-                                                    FilterFrequencyWidget,
-                                                    FilterPOSWidget,
-                                                    FilterProbabilityWidget)
-from weekend_wordle.config import (PATTERN_MATRIX_FILE,
-                                   VALID_GUESSES_FILE,
-                                   VALID_GUESSES_URL,
-                                   PAST_ANSWERS_FILE,
-                                   PAST_ANSWERS_URL,
-                                   ORIGINAL_ANSWERS_FILE,
-                                   ORIGINAL_ANSWERS_URL,
-                                   WORD_FEATURES_FILE,
-                                   CLASSIFIER_MODEL_FILE,
-                                   ENGLISH_DICTIONARY_FILE)
+from .filter_widget import (FilterSuffixWidget,
+                            FilterFrequencyWidget,
+                            FilterPOSWidget,
+                            FilterProbabilityWidget)
+from ..loading.loading_screen import LoadingScreen
+from ...config import (PATTERN_MATRIX_FILE,
+                       VALID_GUESSES_FILE,
+                       VALID_GUESSES_URL,
+                       PAST_ANSWERS_FILE,
+                       PAST_ANSWERS_URL,
+                       ORIGINAL_ANSWERS_FILE,
+                       ORIGINAL_ANSWERS_URL,
+                       WORD_FEATURES_FILE,
+                       CLASSIFIER_MODEL_FILE,
+                       ENGLISH_DICTIONARY_FILE)
 
 class ClassifierSection(Container):
     """A widget for configuring the entire classifier training pipeline."""

@@ -8,10 +8,10 @@ from sklearn.linear_model import LogisticRegression
 import pickle
 from typing import Callable
 
-from weekend_wordle.backend.messenger import UIMessenger, ConsoleMessenger
-from weekend_wordle.backend.helpers import get_messenger, get_abs_path
+from .messenger import UIMessenger, ConsoleMessenger
+from .helpers import get_messenger, get_abs_path
 
-from weekend_wordle.config import CLASSIFIER_CONFIG
+from ..config import CLASSIFIER_CONFIG
 
 def load_spacy_model(model_name="en_core_web_lg",
                      messenger: UIMessenger = None) -> spacy.language.Language:

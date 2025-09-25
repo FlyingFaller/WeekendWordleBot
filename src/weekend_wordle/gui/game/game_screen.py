@@ -4,28 +4,28 @@ from textual.screen import Screen
 from textual.widgets import Footer, Header, DataTable
 from textual import events
 from textual.color import Gradient
+from textual.worker import Worker, WorkerState
 import numpy as np
 
 from dataclasses import replace
 
 # Import BoardState and other components from the new state file
-from weekend_wordle.gui.game.state import (
+from .state import (
     BoardState, 
     GameState, 
     COLOR_INT_TO_CHAR, 
     CHAR_CYCLE
 )
-from weekend_wordle.gui.game.board_widget import WordleBoard
-from weekend_wordle.gui.game.sidebar_widget import Sidebar, ResultsTable, StatsTable
-from weekend_wordle.gui.game.progress_widget import PatchedProgressBar
-from weekend_wordle.gui.game.text_processors import FigletProcessor
-from weekend_wordle.gui.game.confirm_screen import ConfirmationDialog
-from weekend_wordle.backend.core import WordleGame, InvalidWordError, InvalidPatternError
-from weekend_wordle.gui.settings.settings_screen import SettingsScreen
-from weekend_wordle.backend.helpers import int_to_pattern
-from textual.worker import Worker, WorkerState
+from .board_widget import WordleBoard
+from .sidebar_widget import Sidebar, ResultsTable, StatsTable
+from .progress_widget import PatchedProgressBar
+from .text_processors import FigletProcessor
+from .confirm_screen import ConfirmationDialog
+from ..settings.settings_screen import SettingsScreen
+from ...backend.helpers import int_to_pattern
+from ...backend.core import WordleGame, InvalidWordError, InvalidPatternError
 
-from weekend_wordle.config import APP_COLORS, NTHREADS, INITIAL_SUGGESTION
+from ...config import APP_COLORS, NTHREADS, INITIAL_SUGGESTION
 
 class GameScreen(Screen):
     """The main screen for the Wordle game, acting as the central controller."""

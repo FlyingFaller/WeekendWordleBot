@@ -9,8 +9,8 @@ from textual.app import ComposeResult
 from textual.containers import Vertical
 from textual.widgets import DataTable, Static
 
-from weekend_wordle.backend.core import WordleGame
-from weekend_wordle.config import EVENTS
+from ...backend.core import WordleGame
+from ...config import EVENTS
 
 class ResultsTable(Static):
     """A DataTable widget to display word suggestions."""

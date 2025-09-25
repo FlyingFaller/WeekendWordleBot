@@ -5,8 +5,8 @@ This script sets up the Textual application and manages the different screens.
 """
 
 from textual.app import App
-from weekend_wordle.gui.startup.startup_screen import StartupScreen
-from weekend_wordle.config import APP_COLORS
+from .startup.startup_screen import StartupScreen
+from ..config import APP_COLORS
 
 class WordleApp(App):
     """The main application class for the Wordle Solver."""

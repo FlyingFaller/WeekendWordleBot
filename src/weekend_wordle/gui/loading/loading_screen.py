@@ -14,20 +14,20 @@ from textual.worker import Worker, WorkerState
 from textual.color import Gradient
 from textual import events
 
-from weekend_wordle.gui.game.game_screen import GameScreen
-from weekend_wordle.backend.messenger import TextualMessenger
-from weekend_wordle.gui.game.progress_widget import PatchedProgressBar
-from weekend_wordle.backend.helpers import (get_words, 
-                                            get_pattern_matrix, 
-                                            scrape_words, 
-                                            filter_words_by_suffix,
-                                            filter_words_by_POS,
-                                            filter_words_by_frequency) 
-from weekend_wordle.backend.classifier import filter_words_by_probability, load_classifier, get_word_features
-from weekend_wordle.gui.setup.loading_widget import GetWordsWidget, ScrapeWordsWidget
-from weekend_wordle.gui.setup.filter_widget import FilterSuffixWidget, FilterFrequencyWidget, FilterPOSWidget, FilterProbabilityWidget
-from weekend_wordle.backend.core import WordleGame
-from weekend_wordle.config import NPRUNE_GLOBAL_DEFAULT, NPRUNE_ANSWERS_DEFAULT, MAX_DEPTH_DEFAULT, APP_COLORS
+from ..game.game_screen import GameScreen
+from ..game.progress_widget import PatchedProgressBar
+from ..setup.loading_widget import GetWordsWidget, ScrapeWordsWidget
+from ..setup.filter_widget import FilterSuffixWidget, FilterFrequencyWidget, FilterPOSWidget, FilterProbabilityWidget
+from ...backend.messenger import TextualMessenger
+from ...backend.helpers import (get_words, 
+                                get_pattern_matrix, 
+                                scrape_words, 
+                                filter_words_by_suffix,
+                                filter_words_by_POS,
+                                filter_words_by_frequency) 
+from ...backend.classifier import filter_words_by_probability, load_classifier, get_word_features
+from ...backend.core import WordleGame
+from ...config import NPRUNE_GLOBAL_DEFAULT, NPRUNE_ANSWERS_DEFAULT, MAX_DEPTH_DEFAULT, APP_COLORS
 
 class LoadingScreen(Screen):
     """A screen to display while the backend is loading data."""
