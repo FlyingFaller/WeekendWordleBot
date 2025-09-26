@@ -23,6 +23,8 @@ PATTERN_MATRIX_FILE     = "data/pattern_matrix.npy"
 WORD_FEATURES_FILE      = "data/word_features.pkl"
 CLASSIFIER_MODEL_FILE   = "data/trained_classifier.pkl"
 
+CONFIG_FILE = "config.json"
+
 CLASSIFIER_CONFIG = {
     'use_vectors'          : True,
     'spy_rate'             : 0.15,

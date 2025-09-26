@@ -15,7 +15,7 @@ class LoadingWidget(Container):
     def __init__(
         self,
         title: str = None,
-        savefile_path: str = "",
+        savefile: str = "",
         url: str = "",
         refetch: bool = False,
         save: bool = False,
@@ -24,7 +24,7 @@ class LoadingWidget(Container):
     ) -> None:
         super().__init__(*args, **kwargs)
         self.border_title = title
-        self._savefile_path = savefile_path
+        self._savefile = savefile
         self._url = url
         self._refetch = refetch
         self._save = save
@@ -34,7 +34,7 @@ class LoadingWidget(Container):
         with Horizontal(classes="input-row"):
             yield Static("Save File Path:")
             yield Input(
-                value=self._savefile_path,
+                value=self._savefile,
                 placeholder="e.g., data/my_words.txt",
                 id="savefile",
                 compact=True
@@ -107,7 +107,7 @@ class GetPatternMatrixWidget(LoadingWidget):
         with Horizontal(classes="input-row"):
             yield Static("Save File Path:")
             yield Input(
-                value=self._savefile_path,
+                value=self._savefile,
                 placeholder="e.g., data/pattern_matrix.npy",
                 id="savefile",
                 compact=True

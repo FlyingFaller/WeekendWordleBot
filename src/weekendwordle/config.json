@@ -1,0 +1,117 @@
+{
+  "game_settings": {
+    "nprune_global": 15,
+    "nprune_answers": 15,
+    "max_depth": 10,
+    "game_number": 0,
+    "initial_suggestion": ["TARSE", 15005]
+  },
+  "guesses": {
+    "widget_class": "GetWordsWidget",
+    "backend_params": {
+      "savefile": "data/valid_guesses.txt",
+      "url": "https://gist.github.com/dracos/dd0668f281e685bad51479e5acaadb93/raw/6bfa15d263d6d5b63840a8e5b64e04b382fdb079/valid-wordle-words.txt",
+      "refetch": false,
+      "save": false,
+      "include_uppercase": false
+    },
+    "gui_params": {
+      "title": "Guesses"
+    }
+  },
+  "answers": {
+    "widget_class": "GetWordsWidget",
+    "backend_params": {
+      "savefile": "data/valid_guesses.txt",
+      "url": "https://gist.github.com/dracos/dd0668f281e685bad51479e5acaadb93/raw/6bfa15d263d6d5b63840a8e5b64e04b382fdb079/valid-wordle-words.txt",
+      "refetch": false,
+      "save": false,
+      "include_uppercase": false
+    },
+    "gui_params": {
+      "title": "Answers"
+    }
+  },
+  "pattern_matrix": {
+    "widget_class": "GetPatternMatrixWidget",
+    "backend_params": {
+      "savefile": "data/pattern_matrix.npy",
+      "recompute": false,
+      "save": false
+    },
+    "gui_params": {
+      "title": "Pattern Matrix",
+      "_arg_map": {
+        "refetch": "recompute"
+      }
+    }
+  },
+  "classifier": {
+    "widget_class": "ClassifierSection",
+    "gui_params": {
+      "collapse_on_disable": false
+    },
+    "sections": {
+      "positive_words": {
+        "widget_class": "DynamicCollapsibleList",
+        "gui_params": {
+          "title": "Positive Words",
+          "widget_constructors": {
+            "Get Words": "GetWordsWidget",
+            "Scrape Words": "ScrapeWordsWidget"
+          },
+          "default_widgets": [
+            {
+              "widget_class": "GetWordsWidget",
+              "backend_params": {
+                "savefile": "data/original_answers.txt",
+                "url": "https://gist.github.com/cfreshman/a03ef2cba789d8cf00c08f767e0fad7b/raw/c46f451920d5cf6326d550fb2d6abb1642717852/wordle-answers-alphabetical.txt"
+              },
+              "gui_params": { "_title_override": "Original Answers" }
+            },
+            {
+              "widget_class": "ScrapeWordsWidget",
+              "backend_params": {
+                "savefile": "data/past_answers.txt",
+                "url": "https://www.rockpapershotgun.com/wordle-past-answers",
+                "refetch": true
+              },
+              "gui_params": { "_title_override": "Past Answers" }
+            }
+          ]
+        }
+      },
+      "word_features": {
+        "widget_class": "GetWordFeaturesWidget",
+        "backend_params": { "savefile": "data/word_features.pkl" },
+        "gui_params": { "title": "Word Features" }
+      },
+      "load_model": {
+        "widget_class": "LoadModelWidget",
+        "backend_params": { "savefile": "data/trained_classifier.pkl" },
+        "gui_params": { "title": "Load Model" }
+      }
+    }
+  },
+  "answer_filters": {
+    "widget_class": "DynamicCollapsibleList",
+    "gui_params": {
+        "widget_constructors": {
+            "Suffix Filter": "FilterSuffixWidget",
+            "Frequency Filter": "FilterFrequencyWidget",
+            "POS Filter": "FilterPOSWidget",
+            "Classifier Probability Filter": "FilterProbabilityWidget"
+        },
+        "default_widgets": [
+            {
+              "widget_class": "FilterProbabilityWidget",
+              "gui_params": { "_title_override": "Classifier Probability Filter" }
+            }
+        ]
+    }
+  },
+  "answer_sort": {
+    "widget_class": "AnswerSortWidget",
+    "gui_params": {}
+  }
+}

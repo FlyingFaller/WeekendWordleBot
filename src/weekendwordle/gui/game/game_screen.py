@@ -43,7 +43,8 @@ class GameScreen(Screen):
         self.results_history = []
 
         # --- Single Source of Truth ---
-        self.board_state = BoardState(suggestion=INITIAL_SUGGESTION[0])
+        self.initial_suggestion = tuple(self.app.config_data.get('game_settings', {}).get('initial_suggestion', INITIAL_SUGGESTION))
+        self.board_state = BoardState(suggestion=self.initial_suggestion[0])
 
         # Worker stuff
         self.worker: Worker|None = None
@@ -68,7 +69,7 @@ class GameScreen(Screen):
         self.call_after_refresh(self.on_resize)
         # Initial render
         self.query_one(WordleBoard).render_state(self.board_state)
-        self.query_one(ResultsTable).update_data(self.game_obj, [INITIAL_SUGGESTION])
+        self.query_one(ResultsTable).update_data(self.game_obj, [self.initial_suggestion])
 
     # --- Centralized Input Handlers ---
 
@@ -152,7 +153,7 @@ class GameScreen(Screen):
         status = self.game_obj.get_game_state()
         new_guesses = self._format_guesses(status['guesses_played'], status['patterns_seen'])
         
-        suggestion = previous_results['recommendation'] if previous_results else INITIAL_SUGGESTION[0]
+        suggestion = previous_results['recommendation'] if previous_results else self.initial_suggestion[0]
 
         # Update the board state to allow editing the just-popped guess.
         self.board_state = replace(self.board_state,
@@ -310,7 +311,7 @@ class GameScreen(Screen):
         if results:
             results_table.update_data(self.game_obj, results['sorted_results'])
         else:
-            results_table.update_data(self.game_obj, [INITIAL_SUGGESTION])
+            results_table.update_data(self.game_obj, [self.initial_suggestion])
 
         if not clear_stats and results:
             stats_table.update_data(results['event_counts'], self.game_obj)
