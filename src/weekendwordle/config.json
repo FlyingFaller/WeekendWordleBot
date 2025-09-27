@@ -88,7 +88,28 @@
       },
       "load_model": {
         "widget_class": "LoadModelWidget",
-        "backend_params": { "savefile": "data/trained_classifier.pkl" },
+        "backend_params": {
+          "savefile": "data/trained_classifier.pkl",
+          "config": {
+            "use_vectors"          : true,
+            "spy_rate"             : 0.15,
+            "max_iterations"       : 1000,
+            "convergence_tolerance": 1e-2,
+            "random_seed"          : null,
+            "evaluation_threshold" : 0.07,
+            "explicit_features"    : {
+                "frequency"          : 1.0,
+                "is_regular_plural"  : 1.0,
+                "is_irregular_plural": 1.0,
+                "is_past_tense"      : 1.0,
+                "is_adjective"       : 1.0,
+                "is_proper_noun"     : 1.0,
+                "is_gerund"          : 1.0,
+                "vowel_count"        : 1.0,
+                "has_double_letter"  : 1.0
+            }
+          }
+        },
         "gui_params": { "title": "Load Model" }
       }
     }
