@@ -28,3 +28,7 @@ wheels/
 
 # Allow model files which are small
 !wordle_classifier.pkl
+
+# Allow the src/data folder except the pattern_matrix which is too large :(
+!src/weekendwordle/data/*
+src/weekendwordle/data/pattern_matrix.npy
