@@ -3,7 +3,7 @@
     "nprune_global": 15,
     "nprune_answers": 15,
     "max_depth": 10,
-    "game_number": 0,
+    "game_number": null,
     "initial_suggestion": ["TARSE", 15005]
   },
   "guesses": {
@@ -49,7 +49,8 @@
   "classifier": {
     "widget_class": "ClassifierSection",
     "gui_params": {
-      "collapse_on_disable": false
+      "collapse_on_disable": false,
+      "default_state": true
     },
     "sections": {
       "positive_words": {

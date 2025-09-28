@@ -2,6 +2,8 @@ from pathlib import Path
 from numba import get_num_threads
 import os
 
+CONFIG_FILE = "config.json"
+
 USER =  os.getlogin( )
 
 PROJECT_ROOT = Path(__file__).parent
@@ -11,19 +13,6 @@ NTHREADS = get_num_threads()
 GREEN  = 2
 YELLOW = 1
 GRAY   = 0
-
-VALID_GUESSES_URL       = "https://gist.github.com/dracos/dd0668f281e685bad51479e5acaadb93/raw/6bfa15d263d6d5b63840a8e5b64e04b382fdb079/valid-wordle-words.txt"
-VALID_GUESSES_FILE      = "data/valid_guesses.txt"
-ORIGINAL_ANSWERS_URL    = "https://gist.github.com/cfreshman/a03ef2cba789d8cf00c08f767e0fad7b/raw/c46f451920d5cf6326d550fb2d6abb1642717852/wordle-answers-alphabetical.txt"
-ORIGINAL_ANSWERS_FILE   = "data/original_answers.txt"
-PAST_ANSWERS_FILE       = "data/past_answers.txt"
-PAST_ANSWERS_URL        = "https://www.rockpapershotgun.com/wordle-past-answers"
-ENGLISH_DICTIONARY_FILE = "data/en_US-large.txt"
-PATTERN_MATRIX_FILE     = "data/pattern_matrix.npy"
-WORD_FEATURES_FILE      = "data/word_features.pkl"
-CLASSIFIER_MODEL_FILE   = "data/trained_classifier.pkl"
-
-CONFIG_FILE = "config.json"
 
 CLASSIFIER_CONFIG = {
     'use_vectors'          : True,
@@ -61,10 +50,6 @@ EVENTS = [
     ('leaf_calcs_complete', 'Leaf node calculations completed in full'),
 ]
 
-NPRUNE_GLOBAL_DEFAULT  = 15
-NPRUNE_ANSWERS_DEFAULT = 15
-MAX_DEPTH_DEFAULT      = 10
-
 APP_COLORS = {
     'gradient-start'        : '#4795de',
     'gradient-end'          : '#bb637a',
@@ -84,4 +69,71 @@ APP_COLORS = {
     'widget-input-bright'   : '#4F4F4F'
 }
 
+NPRUNE_GLOBAL_DEFAULT  = 15
+NPRUNE_ANSWERS_DEFAULT = 15
+MAX_DEPTH_DEFAULT      = 10
 INITIAL_SUGGESTION = ("TARSE", 15_005)
+
+VALID_GUESSES_URL       = "https://gist.github.com/dracos/dd0668f281e685bad51479e5acaadb93/raw/6bfa15d263d6d5b63840a8e5b64e04b382fdb079/valid-wordle-words.txt"
+VALID_GUESSES_FILE      = "data/valid_guesses.txt"
+ORIGINAL_ANSWERS_URL    = "https://gist.github.com/cfreshman/a03ef2cba789d8cf00c08f767e0fad7b/raw/c46f451920d5cf6326d550fb2d6abb1642717852/wordle-answers-alphabetical.txt"
+ORIGINAL_ANSWERS_FILE   = "data/original_answers.txt"
+PAST_ANSWERS_FILE       = "data/past_answers.txt"
+PAST_ANSWERS_URL        = "https://www.rockpapershotgun.com/wordle-past-answers"
+ENGLISH_DICTIONARY_FILE = "data/en_US-large.txt"
+PATTERN_MATRIX_FILE     = "data/pattern_matrix.npy"
+WORD_FEATURES_FILE      = "data/word_features.pkl"
+CLASSIFIER_MODEL_FILE   = "data/trained_classifier.pkl"
+
+REQUIRED_SCHEMA = {
+    "guesses": {
+        "widget_class": (str, "GetWordsWidget"),
+        "backend_params": dict,
+        "gui_params": dict,
+    },
+    "answers": {
+        "widget_class": (str, "GetWordsWidget"),
+        "backend_params": dict,
+        "gui_params": dict,
+    },
+    "pattern_matrix": {
+        "widget_class": (str, "GetPatternMatrixWidget"),
+        "backend_params": dict,
+        "gui_params": dict,
+    },
+    "classifier": {
+        "widget_class": (str, "ClassifierSection"),
+        "gui_params": dict,
+        "sections": {
+            "positive_words": {
+                "widget_class": (str, "DynamicCollapsibleList"),
+                "gui_params": dict,
+            },
+            "word_features": {
+                "widget_class": (str, "GetWordFeaturesWidget"),
+                "backend_params": dict,
+                "gui_params": dict,
+            },
+            "load_model": {
+                "widget_class": (str, "LoadModelWidget"),
+                "backend_params": dict,
+                "gui_params": dict,
+            }
+        },
+    },
+    "answer_filters": {
+        "widget_class": (str, "DynamicCollapsibleList"),
+        "gui_params": dict,
+    },
+    "answer_sort": {
+        "widget_class": (str, "AnswerSortWidget"),
+        "gui_params": dict,
+    },
+    "game_settings": {
+        "nprune_global": int,
+        "nprune_answers": int,
+        "max_depth": int,
+        "initial_suggestion": list,
+        "game_number": (int, type(None))
+    },
+}

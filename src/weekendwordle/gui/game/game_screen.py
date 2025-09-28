@@ -25,7 +25,7 @@ from ..settings.settings_screen import SettingsScreen
 from ...backend.helpers import int_to_pattern
 from ...backend.core import WordleGame, InvalidWordError, InvalidPatternError
 
-from ...config import APP_COLORS, NTHREADS, INITIAL_SUGGESTION
+from ...config import APP_COLORS, NTHREADS
 
 class GameScreen(Screen):
     """The main screen for the Wordle game, acting as the central controller."""
@@ -39,11 +39,11 @@ class GameScreen(Screen):
         super().__init__()
         self.text_processor = FigletProcessor()
         self.game_obj = game_obj
-        self.game_number = None
+        self.game_number = self.app.config_data['game_settings']['game_number']
         self.results_history = []
 
         # --- Single Source of Truth ---
-        self.initial_suggestion = tuple(self.app.config_data.get('game_settings', {}).get('initial_suggestion', INITIAL_SUGGESTION))
+        self.initial_suggestion = tuple(self.app.config_data['game_settings']['initial_suggestion'])
         self.board_state = BoardState(suggestion=self.initial_suggestion[0])
 
         # Worker stuff

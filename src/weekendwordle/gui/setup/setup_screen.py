@@ -209,15 +209,7 @@ class SetupScreen(Screen):
     def __init__(self) -> None:
         super().__init__()
         self._ready_to_confirm = False
-        try:
-            with open(get_abs_path(self.app.config_path)) as f:
-                config_data = json.load(f)
-                self.config_data = config_data
-                self.app.config_data = config_data
-        except (FileNotFoundError, json.JSONDecodeError) as e:
-            self.app.panic(f"Failed to load config file: {self.app.config_path}\nError: {e}")
-            return 
-
+        self.config_data = self.app.config_data
 
     def on_mount(self) -> None:
         self.call_after_refresh(self._unlock_confirm)

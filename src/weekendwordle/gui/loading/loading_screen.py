@@ -108,13 +108,13 @@ class LoadingScreen(Screen):
                                                             filter_contents['threshold'],
                                                             messenger=messenger)
                 
-            game_settings: dict = self.app.config_data.get('game_settings', {})
+            game_settings: dict = self.app.config_data['game_settings']
             game_obj = WordleGame(pattern_matrix,
                                   guesses,
                                   filtered_answers,
-                                  nprune_global = game_settings.get('nprune_global', NPRUNE_GLOBAL_DEFAULT),
-                                  nprune_answers = game_settings.get('nprune_answers', NPRUNE_ANSWERS_DEFAULT),
-                                  max_depth = game_settings.get('max_depth', MAX_DEPTH_DEFAULT),
+                                  nprune_global = game_settings['nprune_global'],
+                                  nprune_answers = game_settings['nprune_answers'],
+                                  max_depth = game_settings['max_depth'],
                                   sort_func = classifier_sort_func if self.config['sort'] == 'Classifier' and self.config['classifier'] else None)
         
             return game_obj
