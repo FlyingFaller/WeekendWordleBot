@@ -7,7 +7,7 @@
     "initial_suggestion": ["TARSE", 15005]
   },
   "guesses": {
-    "widget_class": "GetWordsWidget",
+    "class": "GetWordsWidget",
     "backend_params": {
       "savefile": "data/valid_guesses.txt",
       "url": "https://gist.github.com/dracos/dd0668f281e685bad51479e5acaadb93/raw/6bfa15d263d6d5b63840a8e5b64e04b382fdb079/valid-wordle-words.txt",
@@ -20,7 +20,7 @@
     }
   },
   "answers": {
-    "widget_class": "GetWordsWidget",
+    "class": "GetWordsWidget",
     "backend_params": {
       "savefile": "data/valid_guesses.txt",
       "url": "https://gist.github.com/dracos/dd0668f281e685bad51479e5acaadb93/raw/6bfa15d263d6d5b63840a8e5b64e04b382fdb079/valid-wordle-words.txt",
@@ -33,7 +33,7 @@
     }
   },
   "pattern_matrix": {
-    "widget_class": "GetPatternMatrixWidget",
+    "class": "GetPatternMatrixWidget",
     "backend_params": {
       "savefile": "data/pattern_matrix.npy",
       "recompute": false,
@@ -47,93 +47,71 @@
     }
   },
   "classifier": {
-    "widget_class": "ClassifierSection",
+    "class": "ClassifierSection",
     "gui_params": {
       "collapse_on_disable": false,
       "default_state": true
     },
-    "sections": {
-      "positive_words": {
-        "widget_class": "DynamicCollapsibleList",
-        "gui_params": {
-          "title": "Positive Words",
-          "widget_constructors": {
-            "Get Words": "GetWordsWidget",
-            "Scrape Words": "ScrapeWordsWidget"
+    "positive_words": {
+      "class": "DynamicCollapsibleList",
+      "items": [
+        {
+          "class": "GetWordsWidget",
+          "backend_params": {
+            "savefile": "data/original_answers.txt",
+            "url": "https://gist.github.com/cfreshman/a03ef2cba789d8cf00c08f767e0fad7b/raw/c46f451920d5cf6326d550fb2d6abb1642717852/wordle-answers-alphabetical.txt"
           },
-          "default_widgets": [
-            {
-              "widget_class": "GetWordsWidget",
-              "backend_params": {
-                "savefile": "data/original_answers.txt",
-                "url": "https://gist.github.com/cfreshman/a03ef2cba789d8cf00c08f767e0fad7b/raw/c46f451920d5cf6326d550fb2d6abb1642717852/wordle-answers-alphabetical.txt"
-              },
-              "gui_params": { "_title_override": "Original Answers" }
-            },
-            {
-              "widget_class": "ScrapeWordsWidget",
-              "backend_params": {
-                "savefile": "data/past_answers.txt",
-                "url": "https://www.rockpapershotgun.com/wordle-past-answers",
-                "refetch": true
-              },
-              "gui_params": { "_title_override": "Past Answers" }
-            }
-          ]
-        }
-      },
-      "word_features": {
-        "widget_class": "GetWordFeaturesWidget",
-        "backend_params": { "savefile": "data/word_features.pkl" },
-        "gui_params": { "title": "Word Features" }
-      },
-      "load_model": {
-        "widget_class": "LoadModelWidget",
-        "backend_params": {
-          "savefile": "data/trained_classifier.pkl",
-          "config": {
-            "use_vectors"          : true,
-            "spy_rate"             : 0.15,
-            "max_iterations"       : 1000,
-            "convergence_tolerance": 1e-2,
-            "random_seed"          : null,
-            "evaluation_threshold" : 0.07,
-            "explicit_features"    : {
-                "frequency"          : 1.0,
-                "is_regular_plural"  : 1.0,
-                "is_irregular_plural": 1.0,
-                "is_past_tense"      : 1.0,
-                "is_adjective"       : 1.0,
-                "is_proper_noun"     : 1.0,
-                "is_gerund"          : 1.0,
-                "vowel_count"        : 1.0,
-                "has_double_letter"  : 1.0
-            }
-          }
+          "gui_params": { "_title_override": "Original Answers" }
         },
-        "gui_params": { "title": "Load Model" }
+        {
+          "class": "ScrapeWordsWidget",
+          "backend_params": {
+            "savefile": "data/past_answers.txt",
+            "url": "https://www.rockpapershotgun.com/wordle-past-answers",
+            "refetch": true
+          },
+          "gui_params": { "_title_override": "Past Answers" }
+        }
+      ],
+      "constructors": {
+        "Get Words": "GetWordsWidget",
+        "Scrape Words": "ScrapeWordsWidget"
+      },
+      "gui_params": {
+        "title": "Positive Words"
       }
+    },
+    "word_features": {
+      "class": "GetWordFeaturesWidget",
+      "backend_params": { "savefile": "data/word_features.pkl" },
+      "gui_params": { "title": "Word Features" }
+    },
+    "load_model": {
+      "class": "LoadModelWidget",
+      "backend_params": { "savefile": "data/trained_classifier.pkl" },
+      "gui_params": { "title": "Load Model" }
     }
   },
   "answer_filters": {
-    "widget_class": "DynamicCollapsibleList",
-    "gui_params": {
-        "widget_constructors": {
-            "Suffix Filter": "FilterSuffixWidget",
-            "Frequency Filter": "FilterFrequencyWidget",
-            "POS Filter": "FilterPOSWidget",
-            "Classifier Probability Filter": "FilterProbabilityWidget"
-        },
-        "default_widgets": [
-            {
-              "widget_class": "FilterProbabilityWidget",
-              "gui_params": { "_title_override": "Classifier Probability Filter" }
-            }
-        ]
-    }
+    "class": "DynamicCollapsibleList",
+    "items": [
+      {
+        "class": "FilterProbabilityWidget",
+        "backend_params": {},
+        "gui_params": { "_title_override": "Classifier Probability Filter" }
+      }
+    ],
+    "constructors": {
+      "Suffix Filter": "FilterSuffixWidget",
+      "Frequency Filter": "FilterFrequencyWidget",
+      "POS Filter": "FilterPOSWidget",
+      "Classifier Probability Filter": "FilterProbabilityWidget"
+    },
+    "gui_params": {}
   },
   "answer_sort": {
-    "widget_class": "AnswerSortWidget",
-    "gui_params": {}
+    "class": "AnswerSortWidget",
+    "gui_params": {},
+    "backend_params": {"default_selection": "classifier"}
   }
 }

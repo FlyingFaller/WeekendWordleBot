@@ -87,46 +87,48 @@ CLASSIFIER_MODEL_FILE   = "data/trained_classifier.pkl"
 
 REQUIRED_SCHEMA = {
     "guesses": {
-        "widget_class": (str, "GetWordsWidget"),
+        "class": (str, "GetWordsWidget"),
         "backend_params": dict,
         "gui_params": dict,
     },
     "answers": {
-        "widget_class": (str, "GetWordsWidget"),
+        "class": (str, "GetWordsWidget"),
         "backend_params": dict,
         "gui_params": dict,
     },
     "pattern_matrix": {
-        "widget_class": (str, "GetPatternMatrixWidget"),
+        "class": (str, "GetPatternMatrixWidget"),
         "backend_params": dict,
         "gui_params": dict,
     },
     "classifier": {
-        "widget_class": (str, "ClassifierSection"),
+        "class": (str, "ClassifierSection"),
         "gui_params": dict,
-        "sections": {
-            "positive_words": {
-                "widget_class": (str, "DynamicCollapsibleList"),
-                "gui_params": dict,
-            },
-            "word_features": {
-                "widget_class": (str, "GetWordFeaturesWidget"),
-                "backend_params": dict,
-                "gui_params": dict,
-            },
-            "load_model": {
-                "widget_class": (str, "LoadModelWidget"),
-                "backend_params": dict,
-                "gui_params": dict,
-            }
+        "positive_words": {
+            "class": (str, "DynamicCollapsibleList"),
+            "items": list,
+            "constructors": dict,
+            "gui_params": dict,
         },
+        "word_features": {
+            "class": (str, "GetWordFeaturesWidget"),
+            "backend_params": dict, 
+            "gui_params": dict 
+        },
+        "load_model": {
+            "class": (str, "LoadModelWidget"),
+            "backend_params": dict,
+            "gui_params": dict
+        }
     },
     "answer_filters": {
-        "widget_class": (str, "DynamicCollapsibleList"),
+        "class": (str, "DynamicCollapsibleList"),
+        "items": list,
+        "constructors": dict,
         "gui_params": dict,
     },
     "answer_sort": {
-        "widget_class": (str, "AnswerSortWidget"),
+        "class": (str, "AnswerSortWidget"),
         "gui_params": dict,
     },
     "game_settings": {

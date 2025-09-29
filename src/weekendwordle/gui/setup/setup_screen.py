@@ -113,14 +113,15 @@ class AnswerSortWidget(Static):
     class CustomRadioButton(RadioButton):
         BUTTON_INNER = '\u25FC'
 
-    def __init__(self, title: str = None, *args, **kwargs):
+    def __init__(self, title: str = None,default_selection: str = 'classifier', *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.border_title = title
+        self._default_selection = default_selection
         
     def compose(self) -> ComposeResult:
         with RadioSet():
-            yield self.CustomRadioButton("Word Frequency", id="word_frequency")
-            yield self.CustomRadioButton("Classifier Probability", value=True, id="classifier_probability")
+            yield self.CustomRadioButton("Word Frequency", value=self._default_selection=='frequency', id="word_frequency")
+            yield self.CustomRadioButton("Classifier Probability", value=self._default_selection=='classifier', id="classifier_probability")
 
     def update_classifier_dependency(self, classifier_enabled: bool) -> None:
         classifier_button = self.query_one("#classifier_probability", RadioButton)
@@ -160,7 +161,7 @@ def build_widget_from_config(config: dict[str, Any], id: str | None = None) -> W
     """
     Builds a widget instance from a configuration dictionary.
     """
-    widget_class_name = config["widget_class"]
+    widget_class_name = config["class"]
     widget_factory = WIDGET_REGISTRY[widget_class_name]
 
     kwargs: dict = config.get("backend_params", {}).copy()
@@ -179,22 +180,29 @@ def build_widget_from_config(config: dict[str, Any], id: str | None = None) -> W
         kwargs['id'] = id
 
     if widget_class_name == "DynamicCollapsibleList":
-        if "widget_constructors" in kwargs:
-            constructors = {}
-            for name, class_name_str in kwargs["widget_constructors"].items():
-                constructors[name] = lambda cls=WIDGET_REGISTRY[class_name_str]: cls()
-            kwargs["widget_constructors"] = constructors
+        # Look for the new top-level keys in the main config object
+        constructors_config = config.get("constructors", {})
+        items_config = config.get("items", [])
+        
+        constructors = {name: lambda cls=WIDGET_REGISTRY[c_name]: cls() 
+                        for name, c_name in constructors_config.items()}
 
-        if "default_widgets" in kwargs:
-            default_widgets_list = []
-            for widget_config in kwargs["default_widgets"]:
-                title = widget_config["gui_params"].pop("_title_override")
-                content_widget = build_widget_from_config(widget_config)
-                default_widgets_list.append((title, content_widget))
-            kwargs["default_widgets"] = default_widgets_list
-    
+        items = []
+        for widget_conf in items_config:
+            title = widget_conf["gui_params"].pop("_title_override")
+            content_widget = build_widget_from_config(widget_conf)
+            items.append((title, content_widget))
+        
+        # Add the processed items to the kwargs for the widget's __init__
+        kwargs["widget_constructors"] = constructors
+        kwargs["default_widgets"] = items
+
     if widget_class_name == "ClassifierSection":
-         kwargs['sections'] = config.get('sections', {})
+        kwargs['sections'] = {
+            'positive_words': config['positive_words'],
+            'word_features': config['word_features'],
+            'load_model': config['load_model']
+        }
 
     return widget_factory(**kwargs)
 
