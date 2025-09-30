@@ -159,52 +159,40 @@ WIDGET_REGISTRY = {
 
 def build_widget_from_config(config: dict[str, Any], id: str | None = None) -> Widget:
     """
-    Builds a widget instance from a configuration dictionary.
+    Builds a widget instance from a GUI-translated configuration dictionary.
+    This function is now fully generic and has no special-case logic.
     """
-    widget_class_name = config["class"]
-    widget_factory = WIDGET_REGISTRY[widget_class_name]
-
-    kwargs: dict = config.get("backend_params", {}).copy()
-    gui_params: dict = config.get("gui_params", {}).copy()
-
-    if "_arg_map" in gui_params:
-        for gui_arg, backend_arg in gui_params["_arg_map"].items():
-            if backend_arg in kwargs:
-                kwargs[gui_arg] = kwargs.pop(backend_arg)
-        del gui_params["_arg_map"]
-
-    kwargs.update(gui_params)
+    widget_factory = WIDGET_REGISTRY[config["class"]]
     
-    # Pass the ID to the widget constructor if it's provided
+    # Merge all parameter dictionaries for the constructor
+    params = config.get("backend_params", {}).copy()
+    params.update(config.get("gui_params", {}))
+    
     if id:
-        kwargs['id'] = id
+        params['id'] = id
 
-    if widget_class_name == "DynamicCollapsibleList":
-        # Look for the new top-level keys in the main config object
+    # The translator now handles special cases, but the builder must still
+    # handle the recursive construction for DynamicCollapsibleList
+    if config.get('class') == 'DynamicCollapsibleList':
         constructors_config = config.get("constructors", {})
         items_config = config.get("items", [])
         
-        constructors = {name: lambda cls=WIDGET_REGISTRY[c_name]: cls() 
-                        for name, c_name in constructors_config.items()}
-
-        items = []
-        for widget_conf in items_config:
-            title = widget_conf["gui_params"].pop("_title_override")
-            content_widget = build_widget_from_config(widget_conf)
-            items.append((title, content_widget))
-        
-        # Add the processed items to the kwargs for the widget's __init__
-        kwargs["widget_constructors"] = constructors
-        kwargs["default_widgets"] = items
-
-    if widget_class_name == "ClassifierSection":
-        kwargs['sections'] = {
-            'positive_words': config['positive_words'],
-            'word_features': config['word_features'],
-            'load_model': config['load_model']
+        params["widget_constructors"] = {
+            name: lambda cls=WIDGET_REGISTRY[c_name]: cls() 
+            for name, c_name in constructors_config.items()
         }
+        
+        default_widgets = []
+        for item_conf in items_config:
+            # The translator should have already handled _title_override,
+            # but we pop it safely here just in case.
+            title = item_conf.get("gui_params", {}).pop("_title_override", "Item")
+            content_widget = build_widget_from_config(item_conf)
+            default_widgets.append((title, content_widget))
+        params["default_widgets"] = default_widgets
 
-    return widget_factory(**kwargs)
+    return widget_factory(**params)
+
 
 # --- MAIN SCREEN ---
 

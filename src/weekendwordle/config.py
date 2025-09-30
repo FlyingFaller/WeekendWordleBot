@@ -86,56 +86,113 @@ WORD_FEATURES_FILE      = "data/word_features.pkl"
 CLASSIFIER_MODEL_FILE   = "data/trained_classifier.pkl"
 
 REQUIRED_SCHEMA = {
+    "game_settings": {
+        "type": dict,
+        "schema": {
+            "nprune_global": {"type": int},
+            "nprune_answers": {"type": int},
+            "max_depth": {"type": int},
+            "game_number": {"type": (int, type(None)), "optional": True},
+            "initial_suggestion": {"type": list},
+        }
+    },
     "guesses": {
-        "class": (str, "GetWordsWidget"),
-        "backend_params": dict,
-        "gui_params": dict,
+        "type": dict,
+        "schema": {
+            "class": {"type": str, "valid_values": ["GetWordsWidget", "ScrapeWordsWidget"]},
+            "backend_params": {"type": dict},
+            "gui_params": {"type": dict, "gui_only": True},
+        }
     },
     "answers": {
-        "class": (str, "GetWordsWidget"),
-        "backend_params": dict,
-        "gui_params": dict,
+        "type": dict,
+        "schema": {
+            "class": {"type": str, "valid_values": ["GetWordsWidget", "ScrapeWordsWidget"]},
+            "backend_params": {"type": dict},
+            "gui_params": {"type": dict, "gui_only": True},
+        }
     },
     "pattern_matrix": {
-        "class": (str, "GetPatternMatrixWidget"),
-        "backend_params": dict,
-        "gui_params": dict,
+        "type": dict,
+        "schema": {
+            "class": {"type": str, "valid_values": "GetPatternMatrixWidget"},
+            "backend_params": {"type": dict},
+            "gui_params": {"type": dict, "gui_only": True},
+        }
     },
     "classifier": {
-        "class": (str, "ClassifierSection"),
-        "gui_params": dict,
-        "positive_words": {
-            "class": (str, "DynamicCollapsibleList"),
-            "items": list,
-            "constructors": dict,
-            "gui_params": dict,
-        },
-        "word_features": {
-            "class": (str, "GetWordFeaturesWidget"),
-            "backend_params": dict, 
-            "gui_params": dict 
-        },
-        "load_model": {
-            "class": (str, "LoadModelWidget"),
-            "backend_params": dict,
-            "gui_params": dict
+        "type": dict,
+        "schema": {
+            "enabled": {"type": bool},
+            "class": {"type": str, "valid_values": "ClassifierSection", "gui_only": True},
+            "gui_params": {"type": dict, "gui_only": True},
+            "positive_words": {
+                "type": dict,
+                "required_if": ("classifier.enabled", True),
+                "schema": {
+                    "class": {"type": str, "valid_values": "DynamicCollapsibleList", "gui_only": True},
+                    "items": {
+                        "type": list,
+                        "schema": {
+                            "class": {"type": str, "valid_values": ["GetWordsWidget", "ScrapeWordsWidget"]},
+                            "backend_params": {"type": dict},
+                            "gui_params": {"type": dict, "gui_only": True}
+                        }
+                    },
+                    "constructors": {"type": dict, "gui_only": True},
+                    "gui_params": {"type": dict, "gui_only": True}
+                }
+            },
+            "word_features": {
+                "type": dict,
+                "required_if": ("classifier.enabled", True),
+                "schema": {
+                    "class": {"type": str, "valid_values": "GetWordFeaturesWidget", "gui_only": True},
+                    "backend_params": {"type": dict},
+                    "gui_params": {"type": dict, "gui_only": True}
+                }
+            },
+            "load_model": {
+                "type": dict,
+                "required_if": ("classifier.enabled", True),
+                "schema": {
+                    "class": {"type": str, "valid_values": "LoadModelWidget", "gui_only": True},
+                    "backend_params": {"type": dict},
+                    "gui_params": {"type": dict, "gui_only": True}
+                }
+            },
         }
     },
     "answer_filters": {
-        "class": (str, "DynamicCollapsibleList"),
-        "items": list,
-        "constructors": dict,
-        "gui_params": dict,
+        "type": dict,
+        "schema": {
+            "class": {"type": str, "valid_values": "DynamicCollapsibleList", "gui_only": True},
+            "items": {
+                "type": list,
+                "schema": { # Schema for each object within the 'items' list
+                    "class": {
+                        "type": str,
+                        "valid_values": [
+                            "FilterProbabilityWidget",
+                            "FilterSuffixWidget",
+                            "FilterFrequencyWidget",
+                            "FilterPOSWidget"
+                        ]
+                    },
+                    "backend_params": {"type": dict},
+                    "gui_params": {"type": dict, "gui_only": True}
+                }
+            },
+            "constructors": {"type": dict, "gui_only": True},
+            "gui_params": {"type": dict, "gui_only": True}
+        }
     },
     "answer_sort": {
-        "class": (str, "AnswerSortWidget"),
-        "gui_params": dict,
-    },
-    "game_settings": {
-        "nprune_global": int,
-        "nprune_answers": int,
-        "max_depth": int,
-        "initial_suggestion": list,
-        "game_number": (int, type(None))
-    },
+        "type": dict,
+        "schema": {
+            "class": {"type": str, "valid_values": "AnswerSortWidget", "gui_only": True},
+            "backend_params": {"type": dict},
+            "gui_params": {"type": dict, "gui_only": True},
+        }
+    }
 }

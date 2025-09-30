@@ -8,7 +8,7 @@ from textual.app import App
 # import argparse
 from .startup.startup_screen import StartupScreen
 from ..config import APP_COLORS
-from ..config_loader import load_config
+from ..config_loader import load_config, translate_for_gui
 
 class WordleApp(App):
     """The main application class for the Wordle Solver."""
@@ -33,7 +33,7 @@ class WordleApp(App):
         self.push_screen(StartupScreen())
 
 def run_app():
-    app = WordleApp(config_data=load_config())
+    app = WordleApp(config_data=translate_for_gui(load_config(no_gui=False)))
     app.run()
 
 if __name__ == "__main__":

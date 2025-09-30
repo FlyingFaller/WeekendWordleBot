@@ -47,10 +47,10 @@
     }
   },
   "classifier": {
+    "enabled": true,
     "class": "ClassifierSection",
     "gui_params": {
-      "collapse_on_disable": false,
-      "default_state": true
+      "collapse_on_disable": false
     },
     "positive_words": {
       "class": "DynamicCollapsibleList",
@@ -97,7 +97,7 @@
     "items": [
       {
         "class": "FilterProbabilityWidget",
-        "backend_params": {},
+        "backend_params": {"threshold": 0.07},
         "gui_params": { "_title_override": "Classifier Probability Filter" }
       }
     ],
@@ -111,7 +111,11 @@
   },
   "answer_sort": {
     "class": "AnswerSortWidget",
-    "gui_params": {},
-    "backend_params": {"default_selection": "classifier"}
+    "backend_params": {"sort": "classifier"},
+    "gui_params": {
+      "_arg_map": {
+        "default_selection": "sort"
+      }
+    }
   }
 }
