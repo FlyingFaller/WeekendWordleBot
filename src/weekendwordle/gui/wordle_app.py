@@ -32,9 +32,9 @@ class WordleApp(App):
         # Start with the startup screen
         self.push_screen(StartupScreen())
 
-def run_app():
+def run_gui():
     app = WordleApp(config_data=translate_for_gui(load_config(no_gui=False)))
     app.run()
 
 if __name__ == "__main__":
-    run_app()
+    run_gui()
