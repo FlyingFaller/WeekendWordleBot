@@ -53,6 +53,12 @@ _LAZY_IMPORTS = {
     # from .backend.tests
     "simulate_game": ".backend.tests",
     "benchmark"    : ".backend.tests",
+
+    # from .backend.cli_app
+    "run_cli": ".backend.cli_app",
+
+    # from .gui.wordle_app 
+    "run_gui": ".gui.wordle_app",
 }
 
 # --- Handling the wildcard import from .config ---
