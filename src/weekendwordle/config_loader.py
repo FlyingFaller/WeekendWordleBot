@@ -224,6 +224,7 @@ def translate_for_backend(config: Dict[str, Any]) -> Dict[str, Any]:
     backend_config = {}
 
     # Translate simple sections
+    backend_config['game_settings'] = config['game_settings']
     backend_config['guesses'] = config['guesses']['backend_params']
     backend_config['answers'] = config['answers']['backend_params']
     backend_config['pattern_matrix'] = config['pattern_matrix']['backend_params']
