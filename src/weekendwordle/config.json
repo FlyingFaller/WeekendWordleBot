@@ -68,7 +68,8 @@
           "backend_params": {
             "savefile": "data/past_answers.txt",
             "url": "https://www.rockpapershotgun.com/wordle-past-answers",
-            "refetch": true
+            "refetch": true,
+            "save": false
           },
           "gui_params": { "_title_override": "Past Answers" }
         }
