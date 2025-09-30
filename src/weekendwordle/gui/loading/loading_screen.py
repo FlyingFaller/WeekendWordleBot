@@ -27,7 +27,7 @@ from ...backend.helpers import (get_words,
                                 filter_words_by_frequency) 
 from ...backend.classifier import filter_words_by_probability, load_classifier, get_word_features
 from ...backend.core import WordleGame
-from ...config import NPRUNE_GLOBAL_DEFAULT, NPRUNE_ANSWERS_DEFAULT, MAX_DEPTH_DEFAULT, APP_COLORS
+from ...config import APP_COLORS
 
 class LoadingScreen(Screen):
     """A screen to display while the backend is loading data."""
@@ -108,16 +108,16 @@ class LoadingScreen(Screen):
                                                             filter_contents['threshold'],
                                                             messenger=messenger)
                 
-            game_settings: dict = self.app.config_data['game_settings']
-            game_obj = WordleGame(pattern_matrix,
-                                  guesses,
-                                  filtered_answers,
-                                  nprune_global = game_settings['nprune_global'],
-                                  nprune_answers = game_settings['nprune_answers'],
-                                  max_depth = game_settings['max_depth'],
-                                  sort_func = classifier_sort_func if self.config['sort'] == 'Classifier' and self.config['classifier'] else None)
-        
-            return game_obj
+        game_settings: dict = self.app.config_data['game_settings']
+        game_obj = WordleGame(pattern_matrix,
+                                guesses,
+                                filtered_answers,
+                                nprune_global = game_settings['nprune_global'],
+                                nprune_answers = game_settings['nprune_answers'],
+                                max_depth = game_settings['max_depth'],
+                                sort_func = classifier_sort_func if self.config['sort'] == 'Classifier' and self.config['classifier'] else None)
+    
+        return game_obj
 
     def on_worker_state_changed(self, event: Worker.StateChanged) -> None:
         """Called when the worker's state changes."""
