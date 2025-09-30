@@ -68,6 +68,7 @@ APP_COLORS = {
     'widget-input-medium'   : '#3F3F3F',
     'widget-input-bright'   : '#4F4F4F'
 }
+FIGLET_FONT = 'georgia11'
 
 NPRUNE_GLOBAL_DEFAULT  = 15
 NPRUNE_ANSWERS_DEFAULT = 15

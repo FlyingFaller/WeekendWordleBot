@@ -7,7 +7,7 @@ from textual_pyfiglet import FigletWidget
 
 # Import your new loading screen
 from .transitional_loading_screen import TransitionalLoading
-
+from ...config import FIGLET_FONT
 
 class StartupScreen(Screen):
     CSS_PATH = "startup_screen.tcss"
@@ -16,7 +16,7 @@ class StartupScreen(Screen):
         yield Vertical(
             FigletWidget(
                 "> Weekend Wordle",
-                font="georgia11",
+                font=FIGLET_FONT,
                 justify="center",
                 colors=["$gradient-start", "$gradient-end"],
                 horizontal=True
