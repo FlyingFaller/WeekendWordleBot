@@ -19,17 +19,17 @@ The quickest way to run the app is with `uvx`. The command-line interface (CLI) 
 
 **To run the terminal (graphical) interface:**
 ```bash
-uvx --from weekendwordle weekendwordlebot
+uvx --from weekendwordle weekendwordle
 ```
 
 **To run the command-line interface:**
 ```bash
-uvx --from weekendwordle weekendwordlebot_cli
+uvx --from weekendwordle weekendwordle_cli
 ```
 
 You can also run the same commands using `pipx`, but you will have to install the SpaCy Model in advance. See [SpaCy Installation](#required-spacy-model).
 ```bash
-pipx --spec weekenedwordle weekendwordlebot
+pipx --spec weekenedwordle weekendwordle
 ```
 
 <details>

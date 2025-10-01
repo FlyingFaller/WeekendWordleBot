@@ -13,7 +13,7 @@ requires-python = ">=3.13.5"
 authors = [{name="Benjamin Saunders", email="bengsaunders@gmail.com"}]
 dependencies = [
     "beautifulsoup4>=4.13.4",
-    "en-core-web-lg",
+    "en-core-web-lg @ https://github.com/explosion/spacy-models/releases/download/en_core_web_lg-3.8.0/en_core_web_lg-3.8.0-py3-none-any.whl",
     "matplotlib>=3.10.3",
     "nltk>=3.9.1",
     "numba>=0.61.2",
@@ -39,15 +39,11 @@ demos = [
 ]
 
 [project.scripts]
-weekendwordlebot = "weekendwordle.gui.wordle_app:run_gui"
-weekendwordlebot_cli = "weekendwordle.backend.cli_app:run_cli"
+weekendwordle = "weekendwordle.gui.wordle_app:run_gui"
+weekendwordle_cli = "weekendwordle.backend.cli_app:run_cli"
 
 [project.urls]
 "Homepage" = "https://github.com/flyingfaller/WeekendWordleBot"
 
-
 [tool.uv.build-backend]
 data = ["data"]
-
-[tool.uv.sources]
-en-core-web-lg = { url = "https://github.com/explosion/spacy-models/releases/download/en_core_web_lg-3.8.0/en_core_web_lg-3.8.0-py3-none-any.whl" }
