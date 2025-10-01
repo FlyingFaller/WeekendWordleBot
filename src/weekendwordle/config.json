@@ -35,7 +35,7 @@
   "pattern_matrix": {
     "class": "GetPatternMatrixWidget",
     "backend_params": {
-      "savefile": "data/pattern_matrix.npy",
+      "savefile": "data/pattern_matrix.npz",
       "recompute": false,
       "save": false
     },

@@ -14,6 +14,7 @@ from numba import njit
 from numba.experimental import jitclass
 import time
 from pathlib import Path
+import lzma
 
 from .cache import Cache
 from .messenger import UIMessenger, ConsoleMessenger
@@ -120,30 +121,75 @@ def get_pattern_matrix(guesses:np.ndarray[str],
                        save: bool = True,
                        messenger: UIMessenger = None) -> np.ndarray:
     """Retrieves the pattern matrix from file if it exists, otherwise generates and saves it."""
-    savefile = get_abs_path(savefile)
+    savefile_path: Path = get_abs_path(savefile)
     messenger = get_messenger(messenger)
-
-    with messenger.task("Acquiring pattern matrix"):
-        # --- Path 2: Load from local file ---
-        if not recompute and os.path.exists(savefile):
-            messenger.task_log("Found local file. Loading matrix...", level="INFO")
-            pattern_matrix = np.load(savefile)
-            messenger.task_log(f"Loaded matrix with shape {pattern_matrix.shape}.", level="INFO")
-            return pattern_matrix
     
-        # --- Path 1: Compute if recompute is forced or file doesn't exist ---
+    with messenger.task("Acquiring pattern matrix"):
+        # Path 2: Load from local file using the .exists() method of the Path object
+        if not recompute and savefile_path.exists():
+            pattern_matrix = _load_matrix_from_file(savefile_path, messenger)
+            if pattern_matrix is not None:
+                return pattern_matrix
+
+        # Path 1: Compute if recompute is forced or file doesn't exist
         if recompute:
             messenger.task_log("Recompute requested. Starting new computation...", level="INFO")
         else:
-            messenger.task_log("Local file not found. Starting new computation...", level="INFO")
-        
+            messenger.task_log(f"Local file not found at '{savefile_path}'. Starting new computation...", level="INFO")
+
         pattern_matrix = precompute_pattern_matrix(guesses, answers, messenger)
 
-        if save:                
-            messenger.task_log(f"Saving to {savefile}...", level="INFO")
-            np.save(savefile, pattern_matrix)
-            messenger.task_log("Save complete.", level="INFO")
-        return pattern_matrix
+        if save:
+            _save_matrix_to_file(savefile_path, pattern_matrix, messenger)
+            
+    return pattern_matrix
+
+def _load_matrix_from_file(filepath: Path, messenger: UIMessenger) -> np.ndarray | None:
+    """Helper to load a matrix using the correct method based on its extension."""
+    messenger.task_log(f"Found local file: {filepath}. Loading matrix...", level="INFO")
+    
+    try:
+        # For multi-part suffixes like '.npy.xz', checking the .name is most reliable
+        if filepath.name.endswith('.npy.xz'):
+            with lzma.open(filepath, 'rb') as f:
+                matrix = np.load(f)
+        elif filepath.suffix == '.npz':
+            with np.load(filepath) as data:
+                matrix = data['matrix']
+        elif filepath.suffix == '.npy':
+            matrix = np.load(filepath)
+        else:
+            messenger.task_log(f"Error: Unknown file extension for {filepath}. Cannot load.", level="ERROR")
+            return None
+            
+        messenger.task_log(f"Loaded matrix with shape {matrix.shape}.", level="INFO")
+        return matrix
+    except Exception as e:
+        messenger.task_log(f"Error loading {filepath}: {e}", level="ERROR")
+        return None
+
+def _save_matrix_to_file(filepath: Path, matrix: np.ndarray, messenger: UIMessenger):
+    """Helper to save a matrix using the correct method based on its extension."""
+    messenger.task_log(f"Saving matrix to {filepath}...", level="INFO")
+    
+    try:
+        # Use the idiomatic pathlib way to create parent directories
+        # filepath.parent.mkdir(parents=True, exist_ok=True)
+
+        if filepath.name.endswith('.npy.xz'):
+            with lzma.open(filepath, 'wb') as f:
+                np.save(f, matrix)
+        elif filepath.suffix == '.npz':
+            np.savez_compressed(filepath, matrix=matrix)
+        elif filepath.suffix == '.npy':
+            np.save(filepath, matrix)
+        else:
+            messenger.task_log(f"Error: Unknown file extension for {filepath}. Cannot save.", level="ERROR")
+            return
+            
+        messenger.task_log("Save complete.", level="INFO")
+    except Exception as e:
+        messenger.task_log(f"Error saving to {filepath}: {e}", level="ERROR")
 
 def get_words(savefile               = VALID_GUESSES_FILE, 
               url                    = VALID_GUESSES_URL,
