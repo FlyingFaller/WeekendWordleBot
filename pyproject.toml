@@ -4,7 +4,7 @@ build-backend = "uv_build"
 
 [project]
 name = "weekendwordle"
-version = "0.1.0"
+version = "1.0.0"
 description = "WeekendWordle is a Python framework and TUI built to find near-optimal guesses for the modern, New York Times version of Wordle."
 readme = "README.md"
 license-files = ["LICEN[CS]E.*", "LICEN[CS]ES/*"]
@@ -13,7 +13,6 @@ requires-python = ">=3.13.5"
 authors = [{name="Benjamin Saunders", email="bengsaunders@gmail.com"}]
 dependencies = [
     "beautifulsoup4>=4.13.4",
-    "en-core-web-lg @ https://github.com/explosion/spacy-models/releases/download/en_core_web_lg-3.8.0/en_core_web_lg-3.8.0-py3-none-any.whl",
     "matplotlib>=3.10.3",
     "nltk>=3.9.1",
     "numba>=0.61.2",
@@ -32,10 +31,11 @@ dependencies = [
     "wordfreq>=3.1.1",
 ]
 
-[project.optional-dependencies]
-demos = [
+[dependency-groups]
+dev = [
     "xgboost>=3.0.2",
     "lightgbm>=4.6.0",
+    "en-core-web-lg @ https://github.com/explosion/spacy-models/releases/download/en_core_web_lg-3.8.0/en_core_web_lg-3.8.0-py3-none-any.whl"
 ]
 
 [project.scripts]
@@ -45,5 +45,8 @@ weekendwordle_cli = "weekendwordle.backend.cli_app:run_cli"
 [project.urls]
 "Homepage" = "https://github.com/flyingfaller/WeekendWordleBot"
 
-[tool.uv.build-backend]
-data = ["data"]
+[[tool.uv.index]]
+name = "testpypi"
+url = "https://test.pypi.org/simple/"
+publish-url = "https://test.pypi.org/legacy/"
+explicit = true
