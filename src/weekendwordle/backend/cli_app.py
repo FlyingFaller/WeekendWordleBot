@@ -7,6 +7,7 @@ from datetime import date
 from dataclasses import dataclass, field
 from typing import Any
 from pyfiglet import Figlet
+import pyperclip
 from ..config_loader import load_config, translate_for_backend
 from .messenger import UIMessenger, ConsoleMessenger
 from .helpers import (get_words, 
@@ -274,7 +275,10 @@ def _handle_set(args, game_obj: WordleGame, messenger: UIMessenger, context: Cli
 
 def _handle_discord(args, game_obj: WordleGame, messenger: UIMessenger, context: CliContext):
     """Handles the /discord command."""
-    messenger.log("\n" + game_obj.get_discord_printout(context.game_number))
+    text = game_obj.get_discord_printout(context.game_number)
+    messenger.log("\n" + text)
+    pyperclip.copy(text)
+    messenger.log("Output copied to clipboard.")
 
 def _handle_help(args, game_obj: WordleGame, messenger: UIMessenger, context: CliContext):
     """Handles the /help command."""

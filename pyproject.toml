@@ -21,6 +21,7 @@ dependencies = [
     "pandas>=2.3.1",
     "plotly>=6.2.0",
     "pyfiglet>=1.0.4",
+    "pyperclip>=1.11.0",
     "requests>=2.32.4",
     "scikit-learn>=1.7",
     "spacy>=3.8.7",
