@@ -69,7 +69,7 @@ class GameScreen(Screen):
         self.call_after_refresh(self.on_resize)
         # Initial render
         self.query_one(WordleBoard).render_state(self.board_state)
-        self.query_one(ResultsTable).update_data(self.game_obj, [self.initial_suggestion])
+        self.query_one(ResultsTable).update_data(self.game_obj, [self.initial_suggestion], self.initial_suggestion[0])
 
     # --- Centralized Input Handlers ---
 
@@ -309,9 +309,10 @@ class GameScreen(Screen):
         stats_table = self.query_one(StatsTable)
         
         if results:
-            results_table.update_data(self.game_obj, results['sorted_results'])
+            recommendation = results.get('recommendation')
+            results_table.update_data(self.game_obj, results['sorted_results'], recommendation)
         else:
-            results_table.update_data(self.game_obj, [self.initial_suggestion])
+            results_table.update_data(self.game_obj, [self.initial_suggestion], self.initial_suggestion[0])
 
         if not clear_stats and results:
             stats_table.update_data(results['event_counts'], self.game_obj)
