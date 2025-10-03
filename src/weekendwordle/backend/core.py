@@ -257,7 +257,16 @@ class WordleGame:
             
         sorted_results = sorted(results, key=self._sort_key)
 
-        recommendation = sorted_results[0][0]
+        # Hail Mary on last guess
+        if len(self.guesses_played) >= 5: 
+            for word, _ in sorted_results:
+                if np.any(np.isin(word, self.current_answer_set)):
+                    recommendation = word
+                    break
+            else:
+                recommendation = sorted_results[0][0]
+        else:
+            recommendation = sorted_results[0][0]
 
         return {'recommendation': recommendation, 
                 'sorted_results': sorted_results,
