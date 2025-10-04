@@ -26,7 +26,7 @@ class ResultsTable(Static):
         table = self.query_one(DataTable)
         table.add_columns("Rank", "Word", "Avrg.", "Total", "Notes")
 
-    def update_data(self, game_obj: WordleGame, sorted_results: list[tuple[str, float]]) -> None:
+    def update_data(self, game_obj: WordleGame, sorted_results: list[tuple[str, float]], recommendation: str) -> None:
         """Clears and repopulates the table with new results."""
         table = self.query_one(DataTable)
         table.clear()
@@ -49,7 +49,14 @@ class ResultsTable(Static):
             table.add_row(str(i + 1), word.upper(), average_guesses, total_guesses, annotation)
         
         if sorted_results:
-            table.move_cursor(row=0)
+            try:
+                # Find the index of the recommended word in the list
+                word_list = [word for word, _ in sorted_results]
+                target_row = word_list.index(recommendation)
+            except ValueError:
+                # Fallback to the first row if the recommendation isn't found
+                target_row = 0
+            table.move_cursor(row=target_row)
 
 
 class StatsTable(Static):

@@ -1,8 +1,8 @@
 {
   "game_settings": {
-    "nprune_global": 15,
-    "nprune_answers": 15,
-    "max_depth": 10,
+    "nprune_global": 50,
+    "nprune_answers": 50,
+    "max_depth": 7,
     "game_number": null,
     "initial_suggestion": ["TARSE", 15005]
   },
