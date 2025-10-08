@@ -17,14 +17,21 @@ from textual import events
 from ..game.game_screen import GameScreen
 from ..game.progress_widget import PatchedProgressBar
 from ..setup.loading_widget import GetWordsWidget, ScrapeWordsWidget
-from ..setup.filter_widget import FilterSuffixWidget, FilterFrequencyWidget, FilterPOSWidget, FilterProbabilityWidget
+from ..setup.filter_widget import (FilterSuffixWidget, 
+                                   FilterFrequencyWidget, 
+                                   FilterPOSWidget, 
+                                   FilterProbabilityWidget, 
+                                   WhitelistFilterWidget, 
+                                   BlacklistFilterWidget)
 from ...backend.messenger import TextualMessenger
 from ...backend.helpers import (get_words, 
                                 get_pattern_matrix, 
                                 scrape_words, 
                                 filter_words_by_suffix,
                                 filter_words_by_POS,
-                                filter_words_by_frequency) 
+                                filter_words_by_frequency,
+                                filter_words_by_whitelist,
+                                filter_words_by_blacklist) 
 from ...backend.classifier import filter_words_by_probability, load_classifier, get_word_features
 from ...backend.core import WordleGame
 from ...config import APP_COLORS
@@ -91,22 +98,36 @@ class LoadingScreen(Screen):
             if filter_type is FilterSuffixWidget:
                 filter_words = get_words(**filter_contents['get_words'], messenger=messenger)
                 filtered_answers = filter_words_by_suffix(filtered_answers,
-                                                        filter_words,
-                                                        filter_contents['suffixes'],
-                                                        messenger=messenger)
+                                                          filter_words,
+                                                          filter_contents['suffixes'],
+                                                          messenger=messenger)
             elif filter_type is FilterFrequencyWidget:
                 filtered_answers = filter_words_by_frequency(filtered_answers, 
-                                                            filter_contents['min_freq'],
-                                                            messenger=messenger)
+                                                             filter_contents['min_freq'],
+                                                             messenger=messenger)
             elif filter_type is FilterPOSWidget:
                 filtered_answers = filter_words_by_POS(filtered_answers, 
-                                                    **filter_contents,
-                                                    messenger=messenger)
+                                                       **filter_contents,
+                                                       messenger=messenger)
             elif filter_type is FilterProbabilityWidget and self.config['classifier']:
                 filtered_answers = filter_words_by_probability(classifier_sort_func, 
-                                                            filtered_answers,
-                                                            filter_contents['threshold'],
-                                                            messenger=messenger)
+                                                               filtered_answers,
+                                                               filter_contents['threshold'],
+                                                               messenger=messenger)
+            elif filter_type is WhitelistFilterWidget or filter_type is BlacklistFilterWidget:
+                test_word_tuple = ()
+                for word_source in filter_contents:
+                    if word_source['type'] is GetWordsWidget:
+                        test_word_tuple += (get_words(**word_source['contents'], messenger=messenger),)
+                    elif word_source['type'] is ScrapeWordsWidget:
+                        test_word_tuple += (scrape_words(**word_source['contents'], messenger=messenger),)
+
+                test_words = reduce(np.union1d, test_word_tuple)
+
+                if filter_type is WhitelistFilterWidget:
+                    filtered_answers = filter_words_by_whitelist(filtered_answers, test_words, messenger)
+                elif filter_type is BlacklistFilterWidget:
+                    filtered_answers = filter_words_by_blacklist(filtered_answers, test_words, messenger)
                 
         game_settings: dict = self.app.config_data['game_settings']
         game_obj = WordleGame(pattern_matrix,

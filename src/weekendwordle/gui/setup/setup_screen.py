@@ -31,9 +31,11 @@ from .loading_widget import (GetWordsWidget,
 from .filter_widget import (FilterSuffixWidget,
                             FilterFrequencyWidget,
                             FilterPOSWidget,
-                            FilterProbabilityWidget)
+                            FilterProbabilityWidget,
+                            WhitelistFilterWidget,
+                            BlacklistFilterWidget)
 from ..loading.loading_screen import LoadingScreen
-from ...backend.helpers import get_abs_path
+# from ...backend.helpers import get_abs_path
 
 # --- WIDGET DEFINITIONS ---
 # All widget classes must be defined *before* they are registered.
@@ -155,6 +157,8 @@ WIDGET_REGISTRY = {
     "FilterFrequencyWidget"  : FilterFrequencyWidget,
     "FilterPOSWidget"        : FilterPOSWidget,
     "FilterProbabilityWidget": FilterProbabilityWidget,
+    "WhitelistFilterWidget"  : WhitelistFilterWidget, 
+    "BlacklistFilterWidget"  : BlacklistFilterWidget,
 }
 
 def build_widget_from_config(config: dict[str, Any], id: str | None = None) -> Widget:
@@ -173,7 +177,8 @@ def build_widget_from_config(config: dict[str, Any], id: str | None = None) -> W
 
     # The translator now handles special cases, but the builder must still
     # handle the recursive construction for DynamicCollapsibleList
-    if config.get('class') == 'DynamicCollapsibleList':
+    # if config.get('class') == 'DynamicCollapsibleList':
+    if issubclass(widget_factory, DynamicCollapsibleList):
         constructors_config = config.get("constructors", {})
         items_config = config.get("items", [])
         

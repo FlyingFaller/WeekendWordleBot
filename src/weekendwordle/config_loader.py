@@ -252,10 +252,24 @@ def translate_for_backend(config: Dict[str, Any]) -> Dict[str, Any]:
     filters_cfg = config.get('answer_filters', {})
     backend_filters = []
     for item in filters_cfg.get('items', []):
-        backend_filters.append({
-            'type': item['class'],
-            'contents': item['backend_params']
-        })
+        item_type = item['class']
+        contents = {}
+
+        # Handle list-based filters that contain sub-items (e.g., Whitelist/Blacklist).
+        if 'items' in item:
+            contents = []
+            for source_item in item['items']:
+                contents.append({
+                    'type': source_item['class'],
+                    'contents': source_item['backend_params']
+                })
+        
+        # Handle simple filters that just have backend parameters.
+        elif 'backend_params' in item:
+            contents = item['backend_params']
+
+        backend_filters.append({'type': item_type, 'contents': contents})
+
     backend_config['filters'] = backend_filters
     
     return backend_config

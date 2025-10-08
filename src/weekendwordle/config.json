@@ -100,13 +100,32 @@
         "class": "FilterProbabilityWidget",
         "backend_params": {"threshold": 0.07},
         "gui_params": { "_title_override": "Classifier Probability Filter" }
+      },
+      {
+        "class": "BlacklistFilterWidget",
+        "gui_params": {"_title_override": "Past Answers Blacklist"},
+        "backend_params": {},
+        "items": [
+          {
+            "class": "ScrapeWordsWidget",
+            "backend_params": {
+              "savefile": "data/past_answers.txt",
+              "url": "https://www.rockpapershotgun.com/wordle-past-answers",
+              "refetch": true,
+              "save": false
+            },
+            "gui_params": { "_title_override": "Past Answers" }
+          }
+        ]
       }
     ],
     "constructors": {
       "Suffix Filter": "FilterSuffixWidget",
       "Frequency Filter": "FilterFrequencyWidget",
       "POS Filter": "FilterPOSWidget",
-      "Classifier Probability Filter": "FilterProbabilityWidget"
+      "Classifier Probability Filter": "FilterProbabilityWidget",
+      "Whitelist Filter": "WhitelistFilterWidget", 
+      "Blacklist Filter": "BlacklistFilterWidget"
     },
     "gui_params": {}
   },

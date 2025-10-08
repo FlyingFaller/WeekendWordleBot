@@ -177,7 +177,9 @@ REQUIRED_SCHEMA = {
                             "FilterProbabilityWidget",
                             "FilterSuffixWidget",
                             "FilterFrequencyWidget",
-                            "FilterPOSWidget"
+                            "FilterPOSWidget",
+                            "WhitelistFilterWidget", 
+                            "BlacklistFilterWidget"
                         ]
                     },
                     "backend_params": {"type": dict},

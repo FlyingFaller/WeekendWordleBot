@@ -191,23 +191,23 @@ class DynamicCollapsibleList(VerticalScroll):
         self._update_select_options()
 
     def get_config(self) -> list[dict]:
-            """
-            Retrieves the configuration from all child widgets in the list.
-            """
-            config_list = []
-            # Find all DeletableCollapsible children within this widget.
-            for item in self.query(DeletableCollapsible):
-                # The actual content widget (e.g., LoadingWidget) is inside the Contents container.
-                # We can query for it. Since there's only one, we can grab the first result.
-                # In the get_config method of DynamicCollapsibleList
-                content_widget = item.query_one(DeletableCollapsible.Contents).query_one(Widget)
-                
-                # Check if the content widget has a get_config method.
-                if hasattr(content_widget, "get_config"):
-                    config = {'type': type(content_widget)} 
-                    config['contents'] = content_widget.get_config()
-                    config_list.append(config)
-            return config_list
+        """
+        Retrieves the configuration from all child widgets in the list.
+        """
+        config_list = []
+        # Find all DeletableCollapsible children within this widget.
+        for item in self.query(DeletableCollapsible):
+            # The actual content widget (e.g., LoadingWidget) is inside the Contents container.
+            # We can query for it. Since there's only one, we can grab the first result.
+            # In the get_config method of DynamicCollapsibleList
+            content_widget = item.query_one(DeletableCollapsible.Contents).query_one(Widget)
+            
+            # Check if the content widget has a get_config method.
+            if hasattr(content_widget, "get_config"):
+                config = {'type': type(content_widget)} 
+                config['contents'] = content_widget.get_config()
+                config_list.append(config)
+        return config_list
     
 class SimpleDynamicListWidget(Vertical):
     """A widget that dynamically manages a list of other widgets."""

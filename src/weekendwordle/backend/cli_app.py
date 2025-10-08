@@ -17,7 +17,9 @@ from .helpers import (get_words,
                       filter_words_by_POS,
                       filter_words_by_frequency,
                       int_to_pattern,
-                      solver_progress_bar) 
+                      solver_progress_bar,
+                      filter_words_by_whitelist,
+                      filter_words_by_blacklist) 
 from .classifier import filter_words_by_probability, load_classifier, get_word_features
 from .core import WordleGame, InvalidWordError, InvalidPatternError
 from .cache import Cache
@@ -424,22 +426,36 @@ def load_backend_data(config: dict, messenger: UIMessenger) -> WordleGame:
         if filter_type == "FilterSuffixWidget":
             filter_words = get_words(**filter_contents['get_words'], messenger=messenger)
             filtered_answers = filter_words_by_suffix(filtered_answers,
-                                                    filter_words,
-                                                    filter_contents['suffixes'],
-                                                    messenger=messenger)
+                                                      filter_words,
+                                                      filter_contents['suffixes'],
+                                                      messenger=messenger)
         elif filter_type == "FilterFrequencyWidget":
             filtered_answers = filter_words_by_frequency(filtered_answers, 
-                                                        filter_contents['min_freq'],
-                                                        messenger=messenger)
+                                                         filter_contents['min_freq'],
+                                                         messenger=messenger)
         elif filter_type == "FilterPOSWidget":
             filtered_answers = filter_words_by_POS(filtered_answers, 
-                                                **filter_contents,
-                                                messenger=messenger)
+                                                   **filter_contents,
+                                                   messenger=messenger)
         elif filter_type == "FilterProbabilityWidget" and config['classifier']:
             filtered_answers = filter_words_by_probability(classifier_sort_func, 
-                                                        filtered_answers,
-                                                        filter_contents['threshold'],
-                                                        messenger=messenger)
+                                                           filtered_answers,
+                                                           filter_contents['threshold'],
+                                                           messenger=messenger)
+        elif filter_type == "WhitelistFilterWidget" or filter_type == "BlacklistFilterWidget":
+            test_word_tuple = ()
+            for word_source in filter_contents:
+                if word_source['type'] == "GetWordsWidget":
+                    test_word_tuple += (get_words(**word_source['contents'], messenger=messenger),)
+                elif word_source['type'] == "ScrapeWordsWidget":
+                    test_word_tuple += (scrape_words(**word_source['contents'], messenger=messenger),)
+
+            test_words = reduce(np.union1d, test_word_tuple)
+
+            if filter_type == "WhitelistFilterWidget":
+                filtered_answers = filter_words_by_whitelist(filtered_answers, test_words, messenger)
+            elif filter_type == "BlacklistFilterWidget":
+                filtered_answers = filter_words_by_blacklist(filtered_answers, test_words, messenger)
             
     game_settings: dict = config['game_settings']
     game_obj = WordleGame(pattern_matrix,

@@ -2,8 +2,9 @@ from textual.app import ComposeResult
 from textual.containers import Container, Horizontal, Vertical
 from textual.widgets import Button, Input, Static, Switch
 
-from ..setup.dynamic_list_widget import SimpleDynamicListWidget, NoFocusButton
-from ..setup.loading_widget import GetWordsWidget, LoadingWidget
+from ..setup.dynamic_list_widget import SimpleDynamicListWidget, NoFocusButton, DynamicCollapsibleList
+from ..setup.loading_widget import GetWordsWidget, LoadingWidget, ScrapeWordsWidget
+from ...config import ORIGINAL_ANSWERS_FILE, ORIGINAL_ANSWERS_URL, PAST_ANSWERS_FILE, PAST_ANSWERS_URL
 
 
 class _SuffixRuleWidget(Vertical):
@@ -197,3 +198,77 @@ class FilterProbabilityWidget(LoadingWidget):
     def get_config(self) -> dict:
         """Returns the current configuration from the UI widgets."""
         return {"threshold": float(self.query_one("#threshold", Input).value)}
+    
+
+class WhitelistFilterWidget(DynamicCollapsibleList):
+    """A widget to filter words based on a whitelist of word sources."""
+
+    def __init__(self, **kwargs) -> None:
+        # Define the widgets this list is allowed to construct
+        child_constructors = {
+            "Get Words": GetWordsWidget,
+            "Scrape Words": ScrapeWordsWidget,
+        }
+
+        # Format them for the parent class constructor
+        if 'widget_constructors' not in kwargs:
+            child_constructors = {
+                "Get Words": GetWordsWidget,
+                "Scrape Words": ScrapeWordsWidget,
+            }
+            kwargs['widget_constructors'] = {
+                name: (lambda cls=widget: cls())
+                for name, widget in child_constructors.items()
+            }
+
+        if 'default_widgets' not in kwargs:
+            kwargs['default_widgets'] = [
+                (
+                    "Original Answers",
+                    GetWordsWidget(
+                        savefile=ORIGINAL_ANSWERS_FILE,
+                        url=ORIGINAL_ANSWERS_URL
+                    ),
+                )
+            ]
+
+        # Call the parent constructor with these default constructors
+        super().__init__(**kwargs)
+
+
+class BlacklistFilterWidget(DynamicCollapsibleList):
+    """A widget to filter words based on a blacklist of word sources."""
+
+    def __init__(self, **kwargs) -> None:
+        # Define the widgets this list is allowed to construct
+        child_constructors = {
+            "Get Words": GetWordsWidget,
+            "Scrape Words": ScrapeWordsWidget,
+        }
+
+        # Format them for the parent class constructor
+        if 'widget_constructors' not in kwargs:
+            child_constructors = {
+                "Get Words": GetWordsWidget,
+                "Scrape Words": ScrapeWordsWidget,
+            }
+            kwargs['widget_constructors'] = {
+                name: (lambda cls=widget: cls())
+                for name, widget in child_constructors.items()
+            }
+
+        if 'default_widgets' not in kwargs:
+            kwargs['default_widgets'] = [
+                (
+                    "Past Answers",
+                    ScrapeWordsWidget(
+                        savefile=PAST_ANSWERS_FILE,
+                        url=PAST_ANSWERS_URL,
+                        refetch=True,
+                        save=False
+                    ),
+                )
+            ]
+
+        # Call the parent constructor with these default constructors
+        super().__init__(**kwargs)

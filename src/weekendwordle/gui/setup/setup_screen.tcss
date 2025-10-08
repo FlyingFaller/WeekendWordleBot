@@ -366,3 +366,20 @@ AnswerSortWidget RadioButton:focus {
 AnswerSortWidget RadioButton:disabled {
     opacity: 0.5;
 }
+
+
+/* Style for White/BlacklistFilterWidgets */
+WhitelistFilterWidget > DeletableCollapsible,
+BlacklistFilterWidget > DeletableCollapsible {
+    background: $screen-background;
+    background-tint: transparent 0%;
+    margin: 1 1 1 1;
+    padding: 1 0;
+    border: none;
+}
+
+WhitelistFilterWidget > DeletableCollapsible:focus-within,
+BlacklistFilterWidget > DeletableCollapsible:focus-within {
+    background: $screen-background;
+    background-tint: transparent 0%;
+}
