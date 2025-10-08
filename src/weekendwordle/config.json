@@ -4,7 +4,7 @@
     "nprune_answers": 50,
     "max_depth": 7,
     "game_number": null,
-    "initial_suggestion": ["TARSE", 15005]
+    "initial_suggestion": ["TARES", 0]
   },
   "guesses": {
     "class": "GetWordsWidget",
