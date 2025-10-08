@@ -534,6 +534,26 @@ def filter_words_by_suffix(
         messenger.task_log(f"Filtered from {initial_count} ⟶  {final_count} words.", level="INFO")
         return filtered_words
 
+def filter_words_by_blacklist(words: np.ndarray[str], 
+                              blacklist: np.ndarray[str],
+                              messenger: UIMessenger) -> np.ndarray[str]:
+    messenger = get_messenger(messenger)
+    with messenger.task(f"Filtering by blacklist"):
+        mask = np.isin(words, blacklist)
+        filtered_words = words[~mask]
+        messenger.task_log(f"Filtered from {len(words)} ⟶  {len(filtered_words)} words.", level="INFO")
+        return filtered_words
+
+def filter_words_by_whitelist(words: np.ndarray[str], 
+                              whitelist: np.ndarray[str],
+                              messenger: UIMessenger) -> np.ndarray[str]:
+    messenger = get_messenger(messenger)
+    with messenger.task(f"Filtering by whitelist"):
+        mask = np.isin(words, whitelist)
+        filtered_words = words[mask]
+        messenger.task_log(f"Filtered from {len(words)} ⟶  {len(filtered_words)} words.", level="INFO")
+        return filtered_words
+
 def print_stats(event_counts, cache: Cache):
     """
     Prints formatted statistics from an EventCounter object.
