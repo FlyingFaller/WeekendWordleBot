@@ -4,7 +4,7 @@
 
 ## A Near-Optimal, Modern Wordle Bot
 
-WeekendWordle is a Python framework and TUI built to find near-optimal guesses for the modern, New York Times version of Wordle https://www.nytimes.com/games/wordle/index.html. It is designed to run on mid-end hardware and find guesses in as quick as subsecond time. WeekendWordle is built using a combination of heuristic pruning and an exhaustive depth-first tree search with pre-solve answer pruning accomplished by a Logistic Regression PU classifier. While there are many configuration options, the defaults achieve an average solve speed of 3.6061 guesses for a 4,161 word answer set. 
+WeekendWordle is a Python framework and TUI built to find near-optimal guesses for the modern, New York Times version of Wordle https://www.nytimes.com/games/wordle/index.html. It is designed to run on mid-end hardware and find guesses in as quick as subsecond time. WeekendWordle is built using a combination of heuristic pruning and an exhaustive depth-first tree search with pre-solve answer pruning accomplished by a Logistic Regression PU classifier. While there are many configuration options, the defaults achieve an average solve speed of 3.4387 guesses for a 2,594 word answer set with the starting word 'TARES'. Without removing all past answers (as of release), 'TARSE' achieves an average of 3.6061 guesses for a 4,161 word answer set. 
 
 Jump To:
 - [Quickly Run WeekendWordle](#usage)
@@ -277,11 +277,13 @@ The solver's efficiency is highly dependent on the size and quality of the initi
 
 ### Filtering Strategies
 
-These methods offer simple, fast ways to reduce the word list based on historical patterns. All filtering methods can be used on their own or in conjunction to varrying degrees of success.
+These methods offer simple, fast ways to reduce the word list based on historical patterns. All filtering methods can be used on their own or in conjunction to varrying degrees of success. The defaults achieve excellent performance using a combination of Spy-EM Classifier filtering with a 7% threshold and a blacklist filter removing all previous answers. 
 
 * **Frequency Filtering**: Historically, Wordle answers are common words. This filter removes rare words by checking their usage frequency in a large text corpus, using the `wordfreq` library. Words that fall below a certain frequency threshold are discarded.
 * **Part-of-Speech (POS) Filtering**: Simple plurals (ending in 's') and past-tense verbs have historically been avoided as answers. This filter uses the natural language toolkit, `nltk`, to identify POS tags and remove certain tagged words (e.g. plurals `NNS` or past-tense verbs `VBD`).
 * **Suffix Filtering**: An alternative to POS tagging, suffix filtering provides a simpler mechanism to filter words based on their endings (e.g., removing words that end in 's', unless preceeded by another 's').
+* **Whitelist Filtering**: Removes words that are not found in a passed reference set of words. 
+* **Blacklist Filtering**: Removes words that are found in a passed reference set of words.
 
 ### Spy-EM Classifier for Answer Prediction
 
